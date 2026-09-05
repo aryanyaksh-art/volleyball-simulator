@@ -11,11 +11,11 @@ A 3D volleyball strategy tool for coaches, not a game. Build a lineup, step thro
 - **Serve-receive planning.** Passer responsibility zones, seam coverage, and warnings when an area is left open against a given serve.
 - **Attack/defense matchups.** Approach lanes, block setup, diggers behind the block, and tip coverage.
 
-Players render as flat, orbit-camera-friendly humanoid silhouettes holding real volleyball stances (dig, block, attack, set, and more), on a court you can freely rotate, pan, and zoom, plus five one-click camera presets (top-down, sideline, behind the endline, and two angled views).
+Players render as flat, orbit-camera-friendly humanoid silhouettes holding real volleyball stances (dig, block, attack, set, and more) on a real net (padded posts, banded top and bottom edges) and court you can freely rotate, pan, and zoom, plus five one-click camera presets (top-down, sideline, behind the endline, and two angled views).
 
 ## Status
 
-Early build. Phase 1 (court, camera, silhouettes) is done. The rotation engine, play authoring, serve-receive planning, and attack/defense matchups are in progress; see [Roadmap](#roadmap).
+Phase 1 is done: court, net, free-orbit camera, and pose-able silhouettes, all reading from a swappable theme. The rotation engine (Phase 2) is next. See [Roadmap](#roadmap) below, and [HANDOFF.md](HANDOFF.md) for a working session's worth of context on where things stand, decisions made, and pitfalls already worked through.
 
 ## Tech stack
 
@@ -44,9 +44,9 @@ npm run build # production build
 ## Roadmap
 
 - [x] **Phase 0.** Project scaffold.
-- [x] **Phase 1.** Court, orbit camera, pose-able silhouettes, theme system.
+- [x] **Phase 1.** Court, net, orbit camera, pose-able silhouettes, theme system.
 - [ ] **Phase 2.** Rotation engine (roster, lineups, 5-1/6-2/4-2 systems, overlap validation).
-- [ ] **Phase 3.** Play model and deterministic playback.
+- [ ] **Phase 3.** Play model and deterministic playback (this is where jump/serve/approach sequences actually animate, smoothly, between poses).
 - [ ] **Phase 4.** Play authoring UI (timeline editor, direct 3D manipulation, play library).
 - [ ] **Phase 5.** Serve-receive planner (responsibility zones, seam coverage, uncovered-area warnings).
 - [ ] **Phase 6.** Attack/defense matchups (approach lanes, block feasibility, block shadow, tip coverage).
