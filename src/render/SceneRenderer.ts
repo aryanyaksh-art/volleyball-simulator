@@ -23,7 +23,9 @@ export class SceneRenderer {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(backgroundColor);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    // preserveDrawingBuffer keeps the frame buffer readable after the swap, which
+    // is what canvas.toDataURL() / the Phase 7 PNG rotation-sheet export need.
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
