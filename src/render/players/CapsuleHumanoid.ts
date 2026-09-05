@@ -202,14 +202,24 @@ export class CapsuleHumanoid implements PlayerVisual {
 
   setPose(pose: PoseId): void {
     const joints = resolvePose(pose);
-    this.spine.rotation.set(joints.spine.x, joints.spine.y, joints.spine.z);
-    this.shoulderL.rotation.set(joints.shoulderL.x, joints.shoulderL.y, joints.shoulderL.z);
-    this.elbowL.rotation.set(joints.elbowL.x, joints.elbowL.y, joints.elbowL.z);
-    this.shoulderR.rotation.set(joints.shoulderR.x, joints.shoulderR.y, joints.shoulderR.z);
-    this.elbowR.rotation.set(joints.elbowR.x, joints.elbowR.y, joints.elbowR.z);
-    this.hipL.rotation.set(joints.hipL.x, joints.hipL.y, joints.hipL.z);
+    // poseRig.ts is authored so a positive x means "swing forward" (spine
+    // lean, shoulder/hip reach toward the net) and a positive z means
+    // "swing outward, away from the midline" — the intuitive way to read a
+    // pose table. Three.js's actual rotation math swings a hanging limb the
+    // other way for both axes (confirmed empirically: a positive x-rotation
+    // reaches AWAY from the model's facing direction, and a positive
+    // z-rotation swings toward the midline, not away from it). Negate x and
+    // z here to realize the authored intent. The knee is the one joint that
+    // needs no correction: its natural "shin swings behind the thigh" bend
+    // already matches this math with a positive angle.
+    this.spine.rotation.set(-joints.spine.x, joints.spine.y, -joints.spine.z);
+    this.shoulderL.rotation.set(-joints.shoulderL.x, joints.shoulderL.y, -joints.shoulderL.z);
+    this.elbowL.rotation.set(-joints.elbowL.x, joints.elbowL.y, -joints.elbowL.z);
+    this.shoulderR.rotation.set(-joints.shoulderR.x, joints.shoulderR.y, -joints.shoulderR.z);
+    this.elbowR.rotation.set(-joints.elbowR.x, joints.elbowR.y, -joints.elbowR.z);
+    this.hipL.rotation.set(-joints.hipL.x, joints.hipL.y, -joints.hipL.z);
     this.kneeL.rotation.set(joints.kneeL.x, joints.kneeL.y, joints.kneeL.z);
-    this.hipR.rotation.set(joints.hipR.x, joints.hipR.y, joints.hipR.z);
+    this.hipR.rotation.set(-joints.hipR.x, joints.hipR.y, -joints.hipR.z);
     this.kneeR.rotation.set(joints.kneeR.x, joints.kneeR.y, joints.kneeR.z);
   }
 
