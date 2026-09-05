@@ -6,17 +6,21 @@ import type { HumanoidFactory } from './HumanoidFactory';
 import { resolvePose } from './poseRig';
 
 const P = {
-  pelvisHeight: 0.95,
-  torsoLength: 0.5,
+  pelvisHeight: 0.92,
+  torsoLength: 0.46,
+  neckLength: 0.05,
   headRadius: 0.11,
-  shoulderOffsetX: 0.2,
+  shoulderOffsetX: 0.21,
   upperArmLength: 0.3,
-  lowerArmLength: 0.28,
+  lowerArmLength: 0.27,
+  handLength: 0.09,
   hipOffsetX: 0.1,
+  hipWidthX: 0.16,
   upperLegLength: 0.45,
-  lowerLegLength: 0.45,
-  limbRadius: 0.06,
-  torsoRadius: 0.14,
+  lowerLegLength: 0.43,
+  footLength: 0.13,
+  limbRadius: 0.055,
+  waistRadius: 0.115,
 };
 
 /** A capsule mesh whose pivot is at its TOP, hanging length `len` downward. */
@@ -29,14 +33,52 @@ function hangingCapsule(len: number, radius: number, color: string): THREE.Mesh 
 }
 
 /**
- * A flat-shaded, unlit humanoid built from ~9 primitives on a small named
- * skeleton (spine, shoulders/elbows, hips/knees). MeshBasicMaterial means it
- * renders as a solid silhouette in team color from any orbit angle, matching
- * the reference look, without needing scene lighting at all.
+ * A torso as a solid of revolution: narrow at the waist, flaring out through
+ * the ribs and chest, then pulling back in at the shoulder line. This one
+ * shape is what reads as an actual human torso instead of a tube, since a
+ * plain capsule silhouettes as a lightbulb, not a body.
+ */
+function buildTorsoGeometry(): THREE.LatheGeometry {
+  const profile = [
+    new THREE.Vector2(P.waistRadius * 0.92, 0),
+    new THREE.Vector2(P.waistRadius, P.torsoLength * 0.12),
+    new THREE.Vector2(P.waistRadius * 1.2, P.torsoLength * 0.42),
+    new THREE.Vector2(P.waistRadius * 1.5, P.torsoLength * 0.72),
+    new THREE.Vector2(P.waistRadius * 1.62, P.torsoLength * 0.92),
+    new THREE.Vector2(P.waistRadius * 1.25, P.torsoLength),
+  ];
+  return new THREE.LatheGeometry(profile, 12);
+}
+
+/** A flattened, widened sphere standing in for the pelvis and hip girdle. */
+function buildHipGeometry(): THREE.SphereGeometry {
+  const geo = new THREE.SphereGeometry(P.waistRadius * 1.15, 12, 8);
+  geo.scale(1.55, 0.62, 0.85);
+  return geo;
+}
+
+/**
+ * A small elongated blob for a hand or foot, enough to read as an
+ * extremity without needing separate fingers or toes at this scale.
+ */
+function buildExtremityGeometry(radius: number, scaleX: number, scaleY: number, scaleZ: number): THREE.SphereGeometry {
+  const geo = new THREE.SphereGeometry(radius, 10, 8);
+  geo.scale(scaleX, scaleY, scaleZ);
+  return geo;
+}
+
+/**
+ * A flat-shaded, unlit humanoid built from about 15 primitives on a small
+ * named skeleton (spine, shoulders/elbows, hips/knees). A tapered torso,
+ * hip girdle, neck, and small hand/foot extremities give it a human
+ * silhouette instead of a stick-of-capsules look, while staying pure flat
+ * color: MeshBasicMaterial means it renders as a solid silhouette in team
+ * color from any orbit angle, matching the reference look, without needing
+ * scene lighting at all.
  *
- * This is the v1 implementation of PlayerVisual. A future look (once the
- * user's reference images are in) is a new class implementing the same
- * interface — SceneBridge and everything in core/ stays untouched.
+ * This is the v1 implementation of PlayerVisual. A future look (once
+ * reference art lands) is a new class implementing the same interface -
+ * SceneBridge and everything in core/ stays untouched.
  */
 export class CapsuleHumanoid implements PlayerVisual {
   readonly root: THREE.Group;
@@ -62,22 +104,27 @@ export class CapsuleHumanoid implements PlayerVisual {
     this.pelvis.position.y = P.pelvisHeight;
     this.root.add(this.pelvis);
 
+    const hip = new THREE.Mesh(buildHipGeometry(), new THREE.MeshBasicMaterial({ color }));
+    this.pelvis.add(hip);
+    this.meshes.push(hip);
+
     this.spine = new THREE.Group();
     this.pelvis.add(this.spine);
 
-    const torso = new THREE.Mesh(
-      new THREE.CapsuleGeometry(P.torsoRadius, Math.max(P.torsoLength - P.torsoRadius * 2, 0.02), 4, 8),
-      new THREE.MeshBasicMaterial({ color }),
-    );
-    torso.position.y = P.torsoLength / 2; // grows upward from the spine pivot
+    const torso = new THREE.Mesh(buildTorsoGeometry(), new THREE.MeshBasicMaterial({ color }));
     this.spine.add(torso);
     this.meshes.push(torso);
+
+    const neck = hangingCapsule(P.neckLength, P.waistRadius * 0.55, color);
+    neck.position.y = P.torsoLength + P.neckLength / 2;
+    this.spine.add(neck);
+    this.meshes.push(neck);
 
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(P.headRadius, 12, 10),
       new THREE.MeshBasicMaterial({ color }),
     );
-    head.position.y = P.torsoLength + P.headRadius + 0.03;
+    head.position.y = P.torsoLength + P.neckLength + P.headRadius;
     this.spine.add(head);
     this.meshes.push(head);
 
@@ -91,7 +138,7 @@ export class CapsuleHumanoid implements PlayerVisual {
 
   private buildArm(side: -1 | 1, color: string): [THREE.Group, THREE.Group] {
     const shoulder = new THREE.Group();
-    shoulder.position.set(side * P.shoulderOffsetX, P.torsoLength - 0.05, 0);
+    shoulder.position.set(side * P.shoulderOffsetX, P.torsoLength * 0.88, 0);
     this.spine.add(shoulder);
 
     const upperArm = hangingCapsule(P.upperArmLength, P.limbRadius, color);
@@ -102,19 +149,27 @@ export class CapsuleHumanoid implements PlayerVisual {
     elbow.position.y = -P.upperArmLength;
     shoulder.add(elbow);
 
-    const lowerArm = hangingCapsule(P.lowerArmLength, P.limbRadius * 0.9, color);
+    const lowerArm = hangingCapsule(P.lowerArmLength, P.limbRadius * 0.85, color);
     elbow.add(lowerArm);
     this.meshes.push(lowerArm);
+
+    const hand = new THREE.Mesh(
+      buildExtremityGeometry(P.limbRadius * 0.85, 0.85, 1.35, 0.6),
+      new THREE.MeshBasicMaterial({ color }),
+    );
+    hand.position.y = -P.lowerArmLength - P.handLength * 0.3;
+    elbow.add(hand);
+    this.meshes.push(hand);
 
     return [shoulder, elbow];
   }
 
   private buildLeg(side: -1 | 1, color: string): [THREE.Group, THREE.Group] {
     const hip = new THREE.Group();
-    hip.position.set(side * P.hipOffsetX, 0, 0);
+    hip.position.set(side * P.hipOffsetX, -0.02, 0);
     this.pelvis.add(hip);
 
-    const upperLeg = hangingCapsule(P.upperLegLength, P.limbRadius * 1.2, color);
+    const upperLeg = hangingCapsule(P.upperLegLength, P.limbRadius * 1.3, color);
     hip.add(upperLeg);
     this.meshes.push(upperLeg);
 
@@ -125,6 +180,14 @@ export class CapsuleHumanoid implements PlayerVisual {
     const lowerLeg = hangingCapsule(P.lowerLegLength, P.limbRadius, color);
     knee.add(lowerLeg);
     this.meshes.push(lowerLeg);
+
+    const foot = new THREE.Mesh(
+      buildExtremityGeometry(P.limbRadius * 1.1, 0.9, 0.55, 1.7),
+      new THREE.MeshBasicMaterial({ color }),
+    );
+    foot.position.set(0, -P.lowerLegLength + 0.015, P.footLength * 0.32);
+    knee.add(foot);
+    this.meshes.push(foot);
 
     return [hip, knee];
   }
@@ -158,7 +221,7 @@ export class CapsuleHumanoid implements PlayerVisual {
   }
 
   setLabel(_jerseyNumber?: number): void {
-    // Jersey-number billboard sprite — added when the roster/lineup UI
+    // Jersey-number billboard sprite - added when the roster/lineup UI
     // (Phase 2) has real numbers to show.
   }
 

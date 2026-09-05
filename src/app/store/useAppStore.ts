@@ -32,3 +32,10 @@ export const useAppStore = create<AppState>((set) => ({
   previewPose: 'idle',
   setPreviewPose: (pose) => set({ previewPose: pose }),
 }));
+
+// Dev-only escape hatch for driving the store from devtools/automation
+// without depending on clicking the actual UI controls (which can race with
+// a person interacting with the same page). Never included in a prod build.
+if (import.meta.env.DEV) {
+  (window as unknown as { __appStore: typeof useAppStore }).__appStore = useAppStore;
+}

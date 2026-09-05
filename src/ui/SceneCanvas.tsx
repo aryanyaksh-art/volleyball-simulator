@@ -59,6 +59,9 @@ export function SceneCanvas() {
 
     rendererRef.current = renderer;
     bridgeRef.current = bridge;
+    if (import.meta.env.DEV) {
+      (window as unknown as { __sceneBridge: SceneBridge }).__sceneBridge = bridge;
+    }
 
     return () => {
       bridge.dispose();
