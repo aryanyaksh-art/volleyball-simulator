@@ -8,6 +8,7 @@ import type { HumanoidFactory } from './players/HumanoidFactory';
 import type { PlayerVisual } from './players/PlayerVisual';
 import { buildCourtGroup } from './court/CourtMesh';
 import { buildNetGroup } from './court/NetMesh';
+import { buildNetPostGroup } from './court/NetPostMesh';
 import { buildAntennaGroup } from './court/AntennaMesh';
 import { buildGridMesh } from './court/GridMesh';
 
@@ -46,6 +47,7 @@ export class SceneBridge {
 
   private courtGroup: THREE.Group | null = null;
   private netGroup: THREE.Group | null = null;
+  private netPostGroup: THREE.Group | null = null;
   private antennaGroup: THREE.Group | null = null;
   private gridMesh: THREE.Object3D | null = null;
 
@@ -68,6 +70,10 @@ export class SceneBridge {
       this.scene.remove(this.netGroup);
       disposeObject(this.netGroup);
     }
+    if (this.netPostGroup) {
+      this.scene.remove(this.netPostGroup);
+      disposeObject(this.netPostGroup);
+    }
     if (this.antennaGroup) {
       this.scene.remove(this.antennaGroup);
       disposeObject(this.antennaGroup);
@@ -82,6 +88,9 @@ export class SceneBridge {
 
     this.courtGroup = buildCourtGroup(this.courtSpec, this.theme);
     this.scene.add(this.courtGroup);
+
+    this.netPostGroup = buildNetPostGroup(this.courtSpec, this.theme);
+    this.scene.add(this.netPostGroup);
 
     this.netGroup = buildNetGroup(this.courtSpec, this.theme);
     this.scene.add(this.netGroup);
@@ -141,6 +150,11 @@ export class SceneBridge {
       this.scene.remove(this.netGroup);
       disposeObject(this.netGroup);
       this.netGroup = null;
+    }
+    if (this.netPostGroup) {
+      this.scene.remove(this.netPostGroup);
+      disposeObject(this.netPostGroup);
+      this.netPostGroup = null;
     }
     if (this.antennaGroup) {
       this.scene.remove(this.antennaGroup);

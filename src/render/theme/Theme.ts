@@ -26,6 +26,8 @@ export interface Theme {
   net: {
     meshColor: string;
     bandColor: string;
+    bottomBandColor: string;
+    postColor: string;
     opacity: number;
   };
   antenna: {

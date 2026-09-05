@@ -12,7 +12,7 @@ const blueprint: Theme = {
   background: '#05070a',
   grid: { visible: true, color: '#8fa3b8', opacity: 0.08, spacingM: 1 },
   court: { mode: 'lineArt', lineColor: '#eef2f5', lineWidthM: 0.05 },
-  net: { meshColor: '#c9d3da', bandColor: '#ffffff', opacity: 0.55 },
+  net: { meshColor: '#c9d3da', bandColor: '#ffffff', bottomBandColor: '#15181c', postColor: '#1f5fbf', opacity: 0.55 },
   antenna: { colorA: '#ff3b30', colorB: '#eef2f5', dashed: true },
   teams: {
     A: { body: '#39ff6a', accent: '#1fbf4d', label: 'Team A' },
@@ -43,7 +43,7 @@ const court: Theme = {
     floorColor: '#c98a4b',
     attackZoneColor: '#b97b3f',
   },
-  net: { meshColor: '#f5f5f0', bandColor: '#ffffff', opacity: 0.85 },
+  net: { meshColor: '#f5f5f0', bandColor: '#ffffff', bottomBandColor: '#101113', postColor: '#1a3d7c', opacity: 0.85 },
   antenna: { colorA: '#d1495b', colorB: '#f5f5f0', dashed: true },
   teams: {
     A: { body: '#d1495b', accent: '#9c2f3e', label: 'Team A' },
@@ -68,7 +68,7 @@ const whiteboard: Theme = {
   background: '#f5f5f2',
   grid: { visible: true, color: '#c7c7c0', opacity: 0.4, spacingM: 1 },
   court: { mode: 'lineArt', lineColor: '#26282b', lineWidthM: 0.04 },
-  net: { meshColor: '#4a4d52', bandColor: '#101113', opacity: 0.7 },
+  net: { meshColor: '#4a4d52', bandColor: '#101113', bottomBandColor: '#101113', postColor: '#2b3a55', opacity: 0.7 },
   antenna: { colorA: '#d62828', colorB: '#26282b', dashed: true },
   teams: {
     A: { body: '#14213d', accent: '#3a5a9a', label: 'Team A' },
