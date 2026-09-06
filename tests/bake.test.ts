@@ -44,7 +44,7 @@ describe('bakePlayForEditing', () => {
     }
   });
 
-  it('is behavior-preserving: the baked play compiles to identical player tracks as the original', () => {
+  it('is behavior-preserving: the baked play compiles to identical player AND ball tracks as the original', () => {
     const original = compilePlay(DEMO_PLAY, ctx);
     const baked = compilePlay(bakePlayForEditing(DEMO_PLAY, ctx), ctx);
 
@@ -60,12 +60,26 @@ describe('bakePlayForEditing', () => {
         expect(bakedSegs[i].endS).toBeCloseTo(originalSegs[i].endS, 10);
       }
     }
+
+    expect(baked.ballTrack).toHaveLength(original.ballTrack.length);
+    for (let i = 0; i < original.ballTrack.length; i++) {
+      expect(baked.ballTrack[i].from.x).toBeCloseTo(original.ballTrack[i].from.x, 8);
+      expect(baked.ballTrack[i].from.y).toBeCloseTo(original.ballTrack[i].from.y, 8);
+      expect(baked.ballTrack[i].from.z).toBeCloseTo(original.ballTrack[i].from.z, 8);
+      expect(baked.ballTrack[i].to.x).toBeCloseTo(original.ballTrack[i].to.x, 8);
+      expect(baked.ballTrack[i].to.y).toBeCloseTo(original.ballTrack[i].to.y, 8);
+      expect(baked.ballTrack[i].to.z).toBeCloseTo(original.ballTrack[i].to.z, 8);
+    }
   });
 
-  it('leaves ball segments untouched (v1 authoring scope: player movement, not ball flight)', () => {
+  it('bakes every ball segment to a local ref expressed in side A frame', () => {
     const baked = bakePlayForEditing(DEMO_PLAY, ctx);
-    for (let i = 0; i < baked.steps.length; i++) {
-      expect(baked.steps[i].ball).toEqual(DEMO_PLAY.steps[i].ball);
+    for (const step of baked.steps) {
+      if (!step.ball) continue;
+      expect(step.ball.from.kind).toBe('local');
+      expect(step.ball.to.kind).toBe('local');
+      expect((step.ball.from as { side: string }).side).toBe('A');
+      expect((step.ball.to as { side: string }).side).toBe('A');
     }
   });
 

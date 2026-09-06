@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import type { LocalPos, Side } from '@/core/court/coordinates';
-import type { Play, PlayStep, Movement, MovementMode } from '@/core/play/types';
+import type { Play, PlayStep, Movement, MovementMode, BallSegment } from '@/core/play/types';
 import type { PoseId } from '@/core/play/poses';
-import { bakePlayForEditing, type BakeContext } from '@/core/play/bake';
+import { bakePlayForEditing, ballPositionBeforeStep, type BakeContext } from '@/core/play/bake';
 
 const LOCAL_STORAGE_KEY = 'vb-saved-plays';
 const MAX_HISTORY = 50;
@@ -29,6 +29,9 @@ const updateMovement = (
     movements[idx] = updater(movements[idx]);
     return { ...step, movements };
   });
+
+const updateBall = (play: Play, stepId: string, updater: (ball: BallSegment) => BallSegment): Play =>
+  updateStep(play, stepId, (step) => (step.ball ? { ...step, ball: updater(step.ball) } : step));
 
 const loadSavedPlays = (): Record<string, Play> => {
   try {
@@ -62,6 +65,14 @@ interface PlayEditorState {
   moveOrAddMovement: (stepId: string, side: Side, slot: number, pos: LocalPos) => void;
   setMovementMode: (stepId: string, side: Side, slot: number, mode: MovementMode) => void;
   setMovementPose: (stepId: string, side: Side, slot: number, pose: PoseId | undefined) => void;
+
+  addBallSegment: (stepId: string) => void;
+  removeBallSegment: (stepId: string) => void;
+  setBallKind: (stepId: string, kind: BallSegment['kind']) => void;
+  setBallFromPosition: (stepId: string, pos: LocalPos, y: number) => void;
+  setBallToPosition: (stepId: string, pos: LocalPos, y: number) => void;
+  setBallApex: (stepId: string, apexM: number) => void;
+  setBallDuration: (stepId: string, duration: number | undefined) => void;
 
   undo: () => void;
   redo: () => void;
@@ -160,6 +171,35 @@ export const usePlayEditorStore = create<PlayEditorState>((set, get) => {
 
     setMovementPose: (stepId, side, slot, pose) =>
       mutate((play) => updateMovement(play, stepId, side, slot, (mv) => ({ ...mv, pose }))),
+
+    addBallSegment: (stepId) =>
+      mutate((play) =>
+        updateStep(play, stepId, (step) => {
+          if (step.ball) return step;
+          const { pos, y } = ballPositionBeforeStep(play, stepId);
+          const ball: BallSegment = {
+            kind: 'pass',
+            from: { kind: 'local', side: 'A', pos, y },
+            to: { kind: 'local', side: 'A', pos, y },
+            apexM: 2.5,
+          };
+          return { ...step, ball };
+        }),
+      ),
+
+    removeBallSegment: (stepId) => mutate((play) => updateStep(play, stepId, (step) => ({ ...step, ball: undefined }))),
+
+    setBallKind: (stepId, kind) => mutate((play) => updateBall(play, stepId, (ball) => ({ ...ball, kind }))),
+
+    setBallFromPosition: (stepId, pos, y) =>
+      mutate((play) => updateBall(play, stepId, (ball) => ({ ...ball, from: { kind: 'local', side: 'A', pos, y } }))),
+
+    setBallToPosition: (stepId, pos, y) =>
+      mutate((play) => updateBall(play, stepId, (ball) => ({ ...ball, to: { kind: 'local', side: 'A', pos, y } }))),
+
+    setBallApex: (stepId, apexM) => mutate((play) => updateBall(play, stepId, (ball) => ({ ...ball, apexM }))),
+
+    setBallDuration: (stepId, duration) => mutate((play) => updateBall(play, stepId, (ball) => ({ ...ball, duration }))),
 
     undo: () =>
       set((s) => {

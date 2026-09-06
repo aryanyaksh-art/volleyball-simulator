@@ -1,11 +1,12 @@
-import type { LocalPos, Side } from '@/core/court/coordinates';
+import { toLocal, toWorld, type LocalPos, type Side } from '@/core/court/coordinates';
 import type { ZoneNumber } from '@/core/court/zones';
+import type { Vec3 } from '@/core/math/vec';
 import type { Roster } from '@/core/roster/types';
 import type { Lineup } from '@/core/lineup/types';
 import { breakdown, type LineupBreakdown } from '@/core/lineup/systems';
 import { effectivePosition } from '@/core/court/anchors';
-import type { Play, PlayerRef, PositionRef, Movement, PlayStep } from './types';
-import { resolvePlayerRef, resolvePositionRef, type RefContext, type RefSnapshot } from './refs';
+import type { Play, PlayerRef, PositionRef, Movement, PlayStep, BallSegment } from './types';
+import { resolvePlayerRef, resolvePositionRef, resolvePositionToWorld, type RefContext, type RefSnapshot } from './refs';
 
 export interface BakeContext {
   rosters: Record<Side, Roster>;
@@ -22,9 +23,10 @@ const SIDES: Side[] = ['A', 'B'];
  * authoring UI only ever reads/writes slot+local refs, so there's never
  * ambiguity about which existing movement a drag or form edit should
  * update, regardless of whether the play was originally authored with
- * `zoneAnchor`/`atPlayer`/`role` refs. Ball segments are intentionally left
- * untouched — v1 authoring edits player movement, not the ball's flight
- * path; see HANDOFF for the scope note.
+ * `zoneAnchor`/`atPlayer`/`role` refs. Ball segments are baked the same
+ * way, into `{kind:'local', side:'A', pos, y}` — side A is just a fixed
+ * canonical frame for expressing a world point as a LocalPos; it doesn't
+ * imply the ball "belongs" to side A.
  */
 export const bakePlayForEditing = (play: Play, ctx: BakeContext): Play => {
   const positions = ctx.positions ?? { A: {}, B: {} };
@@ -47,6 +49,11 @@ export const bakePlayForEditing = (play: Play, ctx: BakeContext): Play => {
     return { kind: 'local', side, pos: pos ?? { lat: 0, depth: 0 } };
   };
 
+  const bakeBallRef = (ref: PositionRef, snapshot: RefSnapshot): PositionRef => {
+    const world = resolvePositionToWorld(ref, refCtx, snapshot);
+    return { kind: 'local', side: 'A', pos: toLocal(world, 'A'), y: world.y };
+  };
+
   const onCourt: { onCourtId: string; side: Side; zone: ZoneNumber | null }[] = [];
   for (const side of SIDES) {
     for (const p of breakdowns[side].onCourt) onCourt.push({ onCourtId: p.onCourtId, side, zone: p.zone });
@@ -61,8 +68,10 @@ export const bakePlayForEditing = (play: Play, ctx: BakeContext): Play => {
     if (onCourtId) currentPos[onCourtId] = init.pos;
   }
 
+  let ballWorldPos: Vec3 = toWorld(play.initial.ball.pos, play.initial.ball.side, play.initial.ball.y ?? 0);
+
   const bakedSteps: PlayStep[] = play.steps.map((step) => {
-    const snapshot: RefSnapshot = { positions: { ...currentPos }, ballWorldPos: null };
+    const snapshot: RefSnapshot = { positions: { ...currentPos }, ballWorldPos };
 
     const bakedMovements: Movement[] = step.movements.map((mv) => {
       const bakedTo = bakeLocalRef(mv.to, mv.who.side, snapshot);
@@ -76,7 +85,13 @@ export const bakePlayForEditing = (play: Play, ctx: BakeContext): Play => {
       };
     });
 
-    return { ...step, movements: bakedMovements };
+    let bakedBall: BallSegment | undefined;
+    if (step.ball) {
+      bakedBall = { ...step.ball, from: bakeBallRef(step.ball.from, snapshot), to: bakeBallRef(step.ball.to, snapshot) };
+      ballWorldPos = resolvePositionToWorld(step.ball.to, refCtx, snapshot);
+    }
+
+    return { ...step, movements: bakedMovements, ball: bakedBall };
   });
 
   const bakedInitialPlayers = play.initial.players.map((init) => ({ ...init, who: bakePlayerRef(init.who) }));
@@ -102,4 +117,22 @@ export const positionBeforeStep = (play: Play, ctx: BakeContext, stepId: string,
     if (mv && mv.to.kind === 'local') pos = mv.to.pos;
   }
   return pos;
+};
+
+/**
+ * Where the ball is just before `stepId` starts, in a play that's already
+ * been through bakePlayForEditing. Used to seed a sensible starting point
+ * when the editor adds a brand-new ball segment to a step that doesn't
+ * have one yet. Returned in the same side-A local frame bakePlayForEditing
+ * uses for ball refs.
+ */
+export const ballPositionBeforeStep = (play: Play, stepId: string): { pos: LocalPos; y: number } => {
+  let world = toWorld(play.initial.ball.pos, play.initial.ball.side, play.initial.ball.y ?? 0);
+  for (const step of play.steps) {
+    if (step.id === stepId) break;
+    if (step.ball && step.ball.to.kind === 'local') {
+      world = toWorld(step.ball.to.pos, step.ball.to.side, step.ball.to.y ?? 0);
+    }
+  }
+  return { pos: toLocal(world, 'A'), y: world.y };
 };
