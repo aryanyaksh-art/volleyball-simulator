@@ -48,7 +48,7 @@ npm run build # production build
 - [x] **Phase 1.** Court, net, orbit camera, pose-able silhouettes, theme system.
 - [x] **Phase 2.** Rotation engine (roster, lineups, 5-1/6-2/4-2 systems, overlap validation).
 - [x] **Phase 3.** Play model and deterministic playback — ball flight, compile/evaluate, diagnostics, pose-blended animation, 3 demo plays.
-- [x] **Phase 4.** Play authoring UI (timeline editor, step inspector, 3D drag-to-position, undo/redo, save). Ball-path editing and a full play library view are still open.
+- [x] **Phase 4.** Play authoring UI (timeline editor, step inspector, 3D drag-to-position, ball-path editing, undo/redo, save). A full play library view (browsing/managing every saved play, not just the picker dropdown) is still open.
 - [ ] **Phase 5.** Serve-receive planner (responsibility zones, seam coverage, uncovered-area warnings).
 - [ ] **Phase 6.** Attack/defense matchups (approach lanes, block feasibility, block shadow, tip coverage).
 - [ ] **Phase 7.** Polish and deploy (presentation mode, PNG export, static hosting).
