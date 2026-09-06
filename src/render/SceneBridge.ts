@@ -11,6 +11,8 @@ import { buildNetGroup } from './court/NetMesh';
 import { buildNetPostGroup } from './court/NetPostMesh';
 import { buildAntennaGroup } from './court/AntennaMesh';
 import { buildGridMesh } from './court/GridMesh';
+import { buildViolationOverlayGroup, type ViolationLink } from './overlays/ViolationOverlay';
+import { BallVisual } from './ball/BallVisual';
 
 export interface PlayerPlacement {
   id: string;
@@ -52,12 +54,16 @@ export class SceneBridge {
   private gridMesh: THREE.Object3D | null = null;
 
   private players = new Map<string, PlayerVisual>();
+  private violationGroup: THREE.Group | null = null;
+  private ball: BallVisual;
 
   constructor(scene: THREE.Scene, theme: Theme, factory: HumanoidFactory, courtSpec: CourtSpec = DEFAULT_COURT_SPEC) {
     this.scene = scene;
     this.theme = theme;
     this.factory = factory;
     this.courtSpec = courtSpec;
+    this.ball = new BallVisual(theme);
+    this.scene.add(this.ball.mesh);
     this.rebuildStatic();
   }
 
@@ -103,7 +109,12 @@ export class SceneBridge {
 
   setTheme(theme: Theme): void {
     this.theme = theme;
+    this.ball.setTheme(theme);
     this.rebuildStatic();
+  }
+
+  setBallState(pos: Vec3, visible: boolean): void {
+    this.ball.setState(pos, visible);
   }
 
   setFormation(placements: PlayerPlacement[]): void {
@@ -132,6 +143,23 @@ export class SceneBridge {
 
   setPose(id: string, pose: PoseId): void {
     this.players.get(id)?.setPose(pose);
+  }
+
+  /** Advances every player's pose crossfade. Called every render frame, in both formation and play mode. */
+  update(dtSeconds: number): void {
+    for (const visual of this.players.values()) visual.update(dtSeconds);
+  }
+
+  /** Draws a connector + end markers between each pair of players in an overlap violation. */
+  setViolationLinks(links: ViolationLink[]): void {
+    if (this.violationGroup) {
+      this.scene.remove(this.violationGroup);
+      disposeObject(this.violationGroup);
+      this.violationGroup = null;
+    }
+    if (links.length === 0) return;
+    this.violationGroup = buildViolationOverlayGroup(links, this.theme);
+    this.scene.add(this.violationGroup);
   }
 
   dispose(): void {
@@ -166,5 +194,12 @@ export class SceneBridge {
       disposeObject(this.gridMesh);
       this.gridMesh = null;
     }
+    if (this.violationGroup) {
+      this.scene.remove(this.violationGroup);
+      disposeObject(this.violationGroup);
+      this.violationGroup = null;
+    }
+    this.scene.remove(this.ball.mesh);
+    this.ball.dispose();
   }
 }
