@@ -11,7 +11,8 @@ import type { ViolationLink } from '@/render/overlays/ViolationOverlay';
 import { capsuleHumanoidFactory } from '@/render/players/CapsuleHumanoid';
 import { THEME_PRESETS } from '@/render/theme/presets';
 import type { Theme } from '@/render/theme/Theme';
-import { toWorld, type LocalPos, type Side } from '@/core/court/coordinates';
+import { toLocal, toWorld, type LocalPos, type Side } from '@/core/court/coordinates';
+import { PlayerDragController } from '@/render/PlayerDragController';
 import type { ZoneNumber } from '@/core/court/zones';
 import type { PoseId } from '@/core/play/poses';
 import type { Lineup } from '@/core/lineup/types';
@@ -95,6 +96,7 @@ export function SceneCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<SceneRenderer | null>(null);
   const bridgeRef = useRef<SceneBridge | null>(null);
+  const dragControllerRef = useRef<PlayerDragController | null>(null);
   const scheduleRef = useRef<PlaySchedule | null>(null);
   const worldStateRef = useRef<WorldState>(createWorldState());
   const tRef = useRef(0);
@@ -193,11 +195,38 @@ export function SceneCanvas() {
       (window as unknown as { __sceneRenderer: SceneRenderer }).__sceneRenderer = renderer;
     }
 
+    const dragController = new PlayerDragController({
+      domElement: renderer.renderer.domElement,
+      camera: renderer.cameraRig.camera,
+      getDraggables: () => bridge.getPlayerRoots(),
+      isEnabled: () => {
+        const playback = usePlaybackStore.getState();
+        return playback.mode === 'author' && !playback.playing && usePlayEditorStore.getState().selectedStepId != null;
+      },
+      setOrbitEnabled: (enabled) => {
+        renderer.cameraRig.controls.enabled = enabled;
+      },
+      onDragMove: (id, worldPos) => {
+        bridge.setPlayerPosition(id, { x: worldPos.x, y: 0, z: worldPos.z });
+      },
+      onDragEnd: (id, worldPos) => {
+        const [side, slotStr] = id.split(':') as [Side, string];
+        const slot = Number(slotStr);
+        const stepId = usePlayEditorStore.getState().selectedStepId;
+        if (!stepId || Number.isNaN(slot)) return;
+        const pos = toLocal({ x: worldPos.x, y: 0, z: worldPos.z }, side);
+        usePlayEditorStore.getState().moveOrAddMovement(stepId, side, slot, pos);
+      },
+    });
+    dragControllerRef.current = dragController;
+
     return () => {
+      dragController.dispose();
       bridge.dispose();
       renderer.dispose();
       rendererRef.current = null;
       bridgeRef.current = null;
+      dragControllerRef.current = null;
     };
   }, []);
 

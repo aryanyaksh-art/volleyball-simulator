@@ -58,6 +58,8 @@ interface PlayEditorState {
   addMovement: (stepId: string, side: Side, slot: number, pos: LocalPos) => void;
   removeMovement: (stepId: string, side: Side, slot: number) => void;
   setMovementPosition: (stepId: string, side: Side, slot: number, pos: LocalPos) => void;
+  /** Like setMovementPosition, but creates the movement first if the player was still holding. Used by 3D drag. */
+  moveOrAddMovement: (stepId: string, side: Side, slot: number, pos: LocalPos) => void;
   setMovementMode: (stepId: string, side: Side, slot: number, mode: MovementMode) => void;
   setMovementPose: (stepId: string, side: Side, slot: number, pose: PoseId | undefined) => void;
 
@@ -138,6 +140,20 @@ export const usePlayEditorStore = create<PlayEditorState>((set, get) => {
 
     setMovementPosition: (stepId, side, slot, pos) =>
       mutate((play) => updateMovement(play, stepId, side, slot, (mv) => ({ ...mv, to: { kind: 'local', side, pos } }))),
+
+    moveOrAddMovement: (stepId, side, slot, pos) =>
+      mutate((play) =>
+        updateStep(play, stepId, (step) => {
+          const idx = findMovementIndex(step, side, slot);
+          if (idx === -1) {
+            const movement: Movement = { who: { side, kind: 'slot', index: slot }, to: { kind: 'local', side, pos }, mode: 'run' };
+            return { ...step, movements: [...step.movements, movement] };
+          }
+          const movements = [...step.movements];
+          movements[idx] = { ...movements[idx], to: { kind: 'local', side, pos } };
+          return { ...step, movements };
+        }),
+      ),
 
     setMovementMode: (stepId, side, slot, mode) =>
       mutate((play) => updateMovement(play, stepId, side, slot, (mv) => ({ ...mv, mode }))),

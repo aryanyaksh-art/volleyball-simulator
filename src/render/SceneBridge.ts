@@ -141,6 +141,16 @@ export class SceneBridge {
     }
   }
 
+  /** Player roots for hit-testing (e.g. PlayerDragController's raycasts) — not for mutating directly. */
+  getPlayerRoots(): { id: string; root: THREE.Object3D }[] {
+    return Array.from(this.players.entries()).map(([id, visual]) => ({ id, root: visual.root }));
+  }
+
+  /** Live visual feedback while dragging a player — moves the mesh without touching pose/color/facing. */
+  setPlayerPosition(id: string, pos: Vec3): void {
+    this.players.get(id)?.setPosition(pos);
+  }
+
   setPose(id: string, pose: PoseId): void {
     this.players.get(id)?.setPose(pose);
   }
