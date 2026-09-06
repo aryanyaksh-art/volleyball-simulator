@@ -13,6 +13,8 @@ import { buildAntennaGroup } from './court/AntennaMesh';
 import { buildGridMesh } from './court/GridMesh';
 import { buildViolationOverlayGroup, type ViolationLink } from './overlays/ViolationOverlay';
 import { BallVisual } from './ball/BallVisual';
+import { buildCoverageHeatmap } from './overlays/CoverageHeatmap';
+import type { ServeReceiveCell } from '@/core/tactics/serveReceive';
 
 export interface PlayerPlacement {
   id: string;
@@ -55,6 +57,7 @@ export class SceneBridge {
 
   private players = new Map<string, PlayerVisual>();
   private violationGroup: THREE.Group | null = null;
+  private coverageMesh: THREE.Mesh | null = null;
   private ball: BallVisual;
 
   constructor(scene: THREE.Scene, theme: Theme, factory: HumanoidFactory, courtSpec: CourtSpec = DEFAULT_COURT_SPEC) {
@@ -172,6 +175,18 @@ export class SceneBridge {
     this.scene.add(this.violationGroup);
   }
 
+  /** The serve-receive uncovered-area heatmap — one merged mesh, colored per cell. Pass null/empty to clear it. */
+  setCoverageHeatmap(cells: ServeReceiveCell[], side: Side, cellSizeM: number): void {
+    if (this.coverageMesh) {
+      this.scene.remove(this.coverageMesh);
+      disposeObject(this.coverageMesh);
+      this.coverageMesh = null;
+    }
+    if (cells.length === 0) return;
+    this.coverageMesh = buildCoverageHeatmap(cells, side, cellSizeM);
+    this.scene.add(this.coverageMesh);
+  }
+
   dispose(): void {
     for (const visual of this.players.values()) {
       this.scene.remove(visual.root);
@@ -208,6 +223,11 @@ export class SceneBridge {
       this.scene.remove(this.violationGroup);
       disposeObject(this.violationGroup);
       this.violationGroup = null;
+    }
+    if (this.coverageMesh) {
+      this.scene.remove(this.coverageMesh);
+      disposeObject(this.coverageMesh);
+      this.coverageMesh = null;
     }
     this.scene.remove(this.ball.mesh);
     this.ball.dispose();

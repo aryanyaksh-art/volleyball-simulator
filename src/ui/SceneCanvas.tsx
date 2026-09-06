@@ -3,6 +3,7 @@ import { useAppStore } from '@/app/store/useAppStore';
 import { useLineupStore } from '@/app/store/useLineupStore';
 import { usePlaybackStore } from '@/app/store/usePlaybackStore';
 import { usePlayEditorStore } from '@/app/store/usePlayEditorStore';
+import { useServeReceiveStore } from '@/app/store/useServeReceiveStore';
 import type { Play } from '@/core/play/types';
 import { deriveRotationState, effectivePosition } from '@/app/deriveRotationState';
 import { SceneRenderer } from '@/render/SceneRenderer';
@@ -11,17 +12,22 @@ import type { ViolationLink } from '@/render/overlays/ViolationOverlay';
 import { capsuleHumanoidFactory } from '@/render/players/CapsuleHumanoid';
 import { THEME_PRESETS } from '@/render/theme/presets';
 import type { Theme } from '@/render/theme/Theme';
-import { toLocal, toWorld, type LocalPos, type Side } from '@/core/court/coordinates';
+import { otherSide, toLocal, toWorld, type LocalPos, type Side } from '@/core/court/coordinates';
 import { PlayerDragController } from '@/render/PlayerDragController';
 import type { ZoneNumber } from '@/core/court/zones';
 import type { PoseId } from '@/core/play/poses';
 import type { Lineup } from '@/core/lineup/types';
 import type { Roster } from '@/core/roster/types';
+import { breakdown } from '@/core/lineup/systems';
 import { compilePlay } from '@/core/play/compile';
 import { evaluateInto } from '@/core/play/evaluate';
 import { createWorldState, type PlaySchedule, type WorldState } from '@/core/play/schedule';
 import { diagnosePlay } from '@/core/play/diagnostics';
+import { analyzeServeReceive, type Passer } from '@/core/tactics/serveReceive';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
+
+const SERVE_RECEIVE_CELL_SIZE_M = 0.4;
+const SERVE_CONTACT_HEIGHT_M = 2.2;
 
 const SIDES: Side[] = ['A', 'B'];
 
@@ -118,6 +124,11 @@ export function SceneCanvas() {
   const editorPlay = usePlayEditorStore((s) => s.play);
   const selectedStepId = usePlayEditorStore((s) => s.selectedStepId);
   const savedPlays = usePlayEditorStore((s) => s.savedPlays);
+
+  const srReceivingSide = useServeReceiveStore((s) => s.receivingSide);
+  const srPasserSlots = useServeReceiveStore((s) => s.passerSlots);
+  const srPasserWeights = useServeReceiveStore((s) => s.passerWeights);
+  const srServeOriginZone = useServeReceiveStore((s) => s.serveOriginZone);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -265,6 +276,48 @@ export function SceneCanvas() {
     usePlaybackStore.getState().pause();
     usePlaybackStore.getState().setT(acc);
   }, [selectedStepId, playbackMode, editorPlay]);
+
+  // The serve-receive coverage heatmap — recomputed whenever the config or
+  // underlying lineup data changes, cleared whenever we leave that mode.
+  useEffect(() => {
+    const bridge = bridgeRef.current;
+    if (!bridge) return;
+
+    if (playbackMode !== 'serve-receive' || srPasserSlots.length === 0) {
+      bridge.setCoverageHeatmap([], srReceivingSide, SERVE_RECEIVE_CELL_SIZE_M);
+      return;
+    }
+
+    const servingSide = otherSide(srReceivingSide);
+    const b = breakdown(lineups[srReceivingSide], rosters[srReceivingSide], srReceivingSide, rotations[srReceivingSide]);
+    const overrides = positionOverrides[srReceivingSide];
+
+    const passers: Passer[] = srPasserSlots
+      .map((slot) => {
+        const p = b.onCourt.find((oc) => oc.slot === slot);
+        if (!p || p.zone == null) return null;
+        return { onCourtId: p.onCourtId, pos: effectivePosition(p.zone, overrides), weight: srPasserWeights[slot] ?? 1 };
+      })
+      .filter((p): p is Passer => p !== null);
+
+    if (passers.length === 0) {
+      bridge.setCoverageHeatmap([], srReceivingSide, SERVE_RECEIVE_CELL_SIZE_M);
+      return;
+    }
+
+    const serveOriginWorld = toWorld(
+      effectivePosition(srServeOriginZone, positionOverrides[servingSide]),
+      servingSide,
+      SERVE_CONTACT_HEIGHT_M,
+    );
+    const cells = analyzeServeReceive({
+      side: srReceivingSide,
+      passers,
+      serveOriginWorld,
+      cellSizeM: SERVE_RECEIVE_CELL_SIZE_M,
+    });
+    bridge.setCoverageHeatmap(cells, srReceivingSide, SERVE_RECEIVE_CELL_SIZE_M);
+  }, [playbackMode, srReceivingSide, srPasserSlots, srPasserWeights, srServeOriginZone, lineups, rosters, rotations, positionOverrides]);
 
   useEffect(() => {
     const bridge = bridgeRef.current;

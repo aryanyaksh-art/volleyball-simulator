@@ -108,6 +108,18 @@ export function TransportBar() {
     );
   }
 
+  if (mode === 'serve-receive') {
+    return (
+      <div className="control-bar">
+        <div className="control-group">
+          <button className="chip" onClick={() => setMode('formation')}>
+            ← Back to formation
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (mode !== 'play') {
     return (
       <div className="control-bar">
@@ -117,6 +129,9 @@ export function TransportBar() {
           </button>
           <button className="chip" onClick={startNewPlay}>
             ✎ New play
+          </button>
+          <button className="chip" onClick={() => setMode('serve-receive')}>
+            🎯 Serve-receive
           </button>
         </div>
       </div>

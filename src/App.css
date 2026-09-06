@@ -349,6 +349,26 @@
   width: 56px;
 }
 
+.coverage-summary {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.coverage-safe {
+  color: #3ecf5c;
+}
+
+.coverage-tight {
+  color: #e0b95c;
+}
+
+.coverage-uncovered {
+  color: #e05c5c;
+}
+
 .scene-canvas {
   width: 100%;
   height: 100%;
