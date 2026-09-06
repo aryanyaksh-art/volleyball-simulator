@@ -2,12 +2,16 @@ import * as THREE from 'three';
 import type { CourtSpec } from '@/core/court/courtSpec';
 import type { Theme } from '../theme/Theme';
 
+/** FIVB official vertical dimension of the net proper (not the court's overall net-height measurement). */
+const NET_PANEL_HEIGHT_M = 1.0;
+
 /**
- * The net panel: a translucent fabric running from just above the floor up
- * to a solid white top tape band (the band the net height is measured to),
- * with a darker bottom band along its lower edge — matching how a real
- * competition net is bordered on both edges and hangs the full height, not
- * just a strip near the top.
+ * The net panel: a translucent fabric running from a solid white top tape
+ * band (the band the net height is measured to) down to a darker bottom
+ * band — matching a real competition net's actual ~1m vertical dimension,
+ * which leaves a real gap between the net's bottom edge and the floor
+ * (about 1.4m for a men's 2.43m net), not a rectangle spanning the full
+ * height of the court.
  *
  * This is a plain semi-transparent panel rather than a textured mesh grid.
  * A real net's weave is only resolvable up close — photographed or viewed
@@ -23,7 +27,8 @@ export function buildNetGroup(spec: CourtSpec, theme: Theme): THREE.Group {
   const width = spec.antennaSpanM;
   const bottomBandM = spec.netTopBandM * 0.7;
   const topOfFabric = spec.netHeightM - spec.netTopBandM;
-  const fabricHeight = topOfFabric - bottomBandM;
+  const bottomOfPanel = Math.max(spec.netHeightM - NET_PANEL_HEIGHT_M, 0);
+  const fabricHeight = Math.max(topOfFabric - bottomOfPanel - bottomBandM, 0.05);
 
   const fabric = new THREE.Mesh(
     new THREE.PlaneGeometry(width, fabricHeight),
@@ -34,7 +39,7 @@ export function buildNetGroup(spec: CourtSpec, theme: Theme): THREE.Group {
       side: THREE.DoubleSide,
     }),
   );
-  fabric.position.set(0, bottomBandM + fabricHeight / 2, 0);
+  fabric.position.set(0, bottomOfPanel + bottomBandM + fabricHeight / 2, 0);
   group.add(fabric);
 
   const band = new THREE.Mesh(
@@ -48,7 +53,7 @@ export function buildNetGroup(spec: CourtSpec, theme: Theme): THREE.Group {
     new THREE.PlaneGeometry(width, bottomBandM),
     new THREE.MeshBasicMaterial({ color: theme.net.bottomBandColor, side: THREE.DoubleSide }),
   );
-  bottomBand.position.set(0, bottomBandM / 2, 0);
+  bottomBand.position.set(0, bottomOfPanel + bottomBandM / 2, 0);
   group.add(bottomBand);
 
   return group;
