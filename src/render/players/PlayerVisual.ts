@@ -12,7 +12,10 @@ export interface PlayerVisual {
   readonly root: THREE.Object3D;
   setPosition(p: Vec3): void;
   setFacing(rad: number): void;
+  /** Sets the target pose — the visual crossfades toward it over subsequent update() calls, not instantly. */
   setPose(pose: PoseId): void;
+  /** Advances any in-progress pose crossfade by `dtSeconds`. Called every render frame regardless of playback mode. */
+  update(dtSeconds: number): void;
   setTeamColor(color: string): void;
   setLabel(number?: number): void;
   dispose(): void;

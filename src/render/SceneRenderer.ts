@@ -49,8 +49,18 @@ export class SceneRenderer {
     this.cameraRig.setAspect(w / h);
   }
 
-  start(): void {
-    const loop = (): void => {
+  /**
+   * `onFrame` runs once per frame before render, given the elapsed seconds
+   * since the previous frame. This is the one seam playback ticks through —
+   * React never drives the scene directly; it only starts/stops/scrubs an
+   * imperative controller that this callback advances each frame.
+   */
+  start(onFrame?: (dtSeconds: number) => void): void {
+    let lastTimeMs: number | null = null;
+    const loop = (nowMs: number): void => {
+      const dtSeconds = lastTimeMs == null ? 0 : Math.min((nowMs - lastTimeMs) / 1000, 0.25);
+      lastTimeMs = nowMs;
+      onFrame?.(dtSeconds);
       this.cameraRig.update();
       this.renderer.render(this.scene, this.cameraRig.camera);
       this.rafId = requestAnimationFrame(loop);

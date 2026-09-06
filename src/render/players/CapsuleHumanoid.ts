@@ -3,7 +3,24 @@ import type { Vec3 } from '@/core/math/vec';
 import type { PoseId } from '@/core/play/poses';
 import type { PlayerVisual } from './PlayerVisual';
 import type { HumanoidFactory } from './HumanoidFactory';
-import { resolvePose } from './poseRig';
+import { resolvePose, type PoseJoints } from './poseRig';
+
+const JOINT_KEYS: (keyof PoseJoints)[] = [
+  'spine',
+  'shoulderL',
+  'elbowL',
+  'shoulderR',
+  'elbowR',
+  'hipL',
+  'kneeL',
+  'hipR',
+  'kneeR',
+];
+
+/** Time constant for the pose crossfade — ~3x this is roughly how long a transition takes to settle. */
+const POSE_BLEND_TAU_S = 0.08;
+
+const lerpNum = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 const P = {
   pelvisHeight: 0.92,
@@ -97,6 +114,9 @@ export class CapsuleHumanoid implements PlayerVisual {
   private meshes: THREE.Mesh[] = [];
   private labelSprite: THREE.Sprite | null = null;
 
+  private currentJoints: PoseJoints = resolvePose('idle');
+  private targetJoints: PoseJoints = resolvePose('idle');
+
   constructor(color: string) {
     this.root = new THREE.Group();
 
@@ -133,7 +153,7 @@ export class CapsuleHumanoid implements PlayerVisual {
     [this.hipL, this.kneeL] = this.buildLeg(-1, color);
     [this.hipR, this.kneeR] = this.buildLeg(1, color);
 
-    this.setPose('idle');
+    this.applyJoints(this.currentJoints);
   }
 
   private buildArm(side: -1 | 1, color: string): [THREE.Group, THREE.Group] {
@@ -200,18 +220,37 @@ export class CapsuleHumanoid implements PlayerVisual {
     this.root.rotation.y = rad;
   }
 
+  /** Sets the target pose. The skeleton crossfades toward it over subsequent update() calls — see poseRig.ts's blend note. */
   setPose(pose: PoseId): void {
-    const joints = resolvePose(pose);
-    // poseRig.ts is authored so a positive x means "swing forward" (spine
-    // lean, shoulder/hip reach toward the net) and a positive z means
-    // "swing outward, away from the midline" — the intuitive way to read a
-    // pose table. Three.js's actual rotation math swings a hanging limb the
-    // other way for both axes (confirmed empirically: a positive x-rotation
-    // reaches AWAY from the model's facing direction, and a positive
-    // z-rotation swings toward the midline, not away from it). Negate x and
-    // z here to realize the authored intent. The knee is the one joint that
-    // needs no correction: its natural "shin swings behind the thigh" bend
-    // already matches this math with a positive angle.
+    this.targetJoints = resolvePose(pose);
+  }
+
+  /** Advances the pose crossfade by dtSeconds using framerate-independent exponential smoothing, then applies it. */
+  update(dtSeconds: number): void {
+    const alpha = 1 - Math.exp(-Math.max(dtSeconds, 0) / POSE_BLEND_TAU_S);
+    for (const key of JOINT_KEYS) {
+      const from = this.currentJoints[key];
+      const to = this.targetJoints[key];
+      this.currentJoints[key] = {
+        x: lerpNum(from.x, to.x, alpha),
+        y: lerpNum(from.y, to.y, alpha),
+        z: lerpNum(from.z, to.z, alpha),
+      };
+    }
+    this.applyJoints(this.currentJoints);
+  }
+
+  // poseRig.ts is authored so a positive x means "swing forward" (spine
+  // lean, shoulder/hip reach toward the net) and a positive z means
+  // "swing outward, away from the midline" — the intuitive way to read a
+  // pose table. Three.js's actual rotation math swings a hanging limb the
+  // other way for both axes (confirmed empirically: a positive x-rotation
+  // reaches AWAY from the model's facing direction, and a positive
+  // z-rotation swings toward the midline, not away from it). Negate x and
+  // z here to realize the authored intent. The knee is the one joint that
+  // needs no correction: its natural "shin swings behind the thigh" bend
+  // already matches this math with a positive angle.
+  private applyJoints(joints: PoseJoints): void {
     this.spine.rotation.set(-joints.spine.x, joints.spine.y, -joints.spine.z);
     this.shoulderL.rotation.set(-joints.shoulderL.x, joints.shoulderL.y, -joints.shoulderL.z);
     this.elbowL.rotation.set(-joints.elbowL.x, joints.elbowL.y, -joints.elbowL.z);
