@@ -20,3 +20,7 @@ export const ZONE_BASE: Readonly<Record<ZoneNumber, LocalPos>> = {
 
 /** Where a front-row setter releases to on a standard serve-receive. */
 export const SETTER_TARGET: Readonly<LocalPos> = { lat: 1.5, depth: 2.0 };
+
+/** Resolves a zone's effective position: a manual override if one is set, else the default anchor. */
+export const effectivePosition = (zone: ZoneNumber, overrides?: Partial<Record<ZoneNumber, LocalPos>>): LocalPos =>
+  overrides?.[zone] ?? ZONE_BASE[zone];
