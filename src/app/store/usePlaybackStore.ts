@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { PlayDiagnostics } from '@/core/play/diagnostics';
 
-export type PlaybackMode = 'formation' | 'play' | 'author' | 'serve-receive';
+export type PlaybackMode = 'formation' | 'play' | 'author' | 'serve-receive' | 'matchup';
 
 const EMPTY_DIAGNOSTICS: PlayDiagnostics = { speedCapViolations: [], ballFlightIssues: [] };
 

@@ -4,6 +4,7 @@ import { TransportBar } from '@/ui/TransportBar';
 import { LineupSidebar } from '@/ui/panels/LineupSidebar';
 import { AuthorSidebar } from '@/ui/panels/AuthorSidebar';
 import { ServeReceiveSidebar } from '@/ui/panels/ServeReceiveSidebar';
+import { MatchupSidebar } from '@/ui/panels/MatchupSidebar';
 import { DiagnosticsPanel } from '@/ui/panels/DiagnosticsPanel';
 import { usePlaybackStore } from '@/app/store/usePlaybackStore';
 import './App.css';
@@ -18,7 +19,15 @@ function App() {
           <SceneCanvas />
           <DiagnosticsPanel />
         </div>
-        {mode === 'author' ? <AuthorSidebar /> : mode === 'serve-receive' ? <ServeReceiveSidebar /> : <LineupSidebar />}
+        {mode === 'author' ? (
+          <AuthorSidebar />
+        ) : mode === 'serve-receive' ? (
+          <ServeReceiveSidebar />
+        ) : mode === 'matchup' ? (
+          <MatchupSidebar />
+        ) : (
+          <LineupSidebar />
+        )}
       </div>
       <TransportBar />
       <ControlBar />

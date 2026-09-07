@@ -15,6 +15,8 @@ import { buildViolationOverlayGroup, type ViolationLink } from './overlays/Viola
 import { BallVisual } from './ball/BallVisual';
 import { buildCoverageHeatmap } from './overlays/CoverageHeatmap';
 import type { ServeReceiveCell } from '@/core/tactics/serveReceive';
+import { buildApproachLaneGroup } from './overlays/ApproachLanes';
+import { buildBlockShadowMesh, buildTipRegionRing } from './overlays/BlockShadow';
 
 export interface PlayerPlacement {
   id: string;
@@ -58,6 +60,9 @@ export class SceneBridge {
   private players = new Map<string, PlayerVisual>();
   private violationGroup: THREE.Group | null = null;
   private coverageMesh: THREE.Mesh | null = null;
+  private approachLaneGroup: THREE.Group | null = null;
+  private blockShadowMesh: THREE.Mesh | null = null;
+  private tipRegionMesh: THREE.Mesh | null = null;
   private ball: BallVisual;
 
   constructor(scene: THREE.Scene, theme: Theme, factory: HumanoidFactory, courtSpec: CourtSpec = DEFAULT_COURT_SPEC) {
@@ -187,6 +192,41 @@ export class SceneBridge {
     this.scene.add(this.coverageMesh);
   }
 
+  /** Approach lane line (approach start -> takeoff -> contact). Pass an empty array to clear it. */
+  setApproachLane(points: Vec3[]): void {
+    if (this.approachLaneGroup) {
+      this.scene.remove(this.approachLaneGroup);
+      disposeObject(this.approachLaneGroup);
+      this.approachLaneGroup = null;
+    }
+    if (points.length === 0) return;
+    this.approachLaneGroup = buildApproachLaneGroup(points, this.theme);
+    this.scene.add(this.approachLaneGroup);
+  }
+
+  /** The block shadow quadrilateral plus an optional tip-coverage ring. Pass an empty polygon (and null center) to clear both. */
+  setMatchupShadow(polygon: Vec3[], tip: { center: Vec3; radiusM: number } | null): void {
+    if (this.blockShadowMesh) {
+      this.scene.remove(this.blockShadowMesh);
+      disposeObject(this.blockShadowMesh);
+      this.blockShadowMesh = null;
+    }
+    if (this.tipRegionMesh) {
+      this.scene.remove(this.tipRegionMesh);
+      disposeObject(this.tipRegionMesh);
+      this.tipRegionMesh = null;
+    }
+    const mesh = buildBlockShadowMesh(polygon, this.theme);
+    if (mesh) {
+      this.blockShadowMesh = mesh;
+      this.scene.add(mesh);
+    }
+    if (tip) {
+      this.tipRegionMesh = buildTipRegionRing(tip.center, tip.radiusM, this.theme);
+      this.scene.add(this.tipRegionMesh);
+    }
+  }
+
   dispose(): void {
     for (const visual of this.players.values()) {
       this.scene.remove(visual.root);
@@ -228,6 +268,21 @@ export class SceneBridge {
       this.scene.remove(this.coverageMesh);
       disposeObject(this.coverageMesh);
       this.coverageMesh = null;
+    }
+    if (this.approachLaneGroup) {
+      this.scene.remove(this.approachLaneGroup);
+      disposeObject(this.approachLaneGroup);
+      this.approachLaneGroup = null;
+    }
+    if (this.blockShadowMesh) {
+      this.scene.remove(this.blockShadowMesh);
+      disposeObject(this.blockShadowMesh);
+      this.blockShadowMesh = null;
+    }
+    if (this.tipRegionMesh) {
+      this.scene.remove(this.tipRegionMesh);
+      disposeObject(this.tipRegionMesh);
+      this.tipRegionMesh = null;
     }
     this.scene.remove(this.ball.mesh);
     this.ball.dispose();

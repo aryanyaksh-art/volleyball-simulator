@@ -108,7 +108,7 @@ export function TransportBar() {
     );
   }
 
-  if (mode === 'serve-receive') {
+  if (mode === 'serve-receive' || mode === 'matchup') {
     return (
       <div className="control-bar">
         <div className="control-group">
@@ -132,6 +132,9 @@ export function TransportBar() {
           </button>
           <button className="chip" onClick={() => setMode('serve-receive')}>
             🎯 Serve-receive
+          </button>
+          <button className="chip" onClick={() => setMode('matchup')}>
+            ⚔ Matchups
           </button>
         </div>
       </div>

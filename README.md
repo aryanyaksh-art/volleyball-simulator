@@ -10,14 +10,15 @@ A 3D volleyball strategy tool for coaches, not a game. Build a roster and lineup
 - **Play authoring.** Script a sequence of steps (serve, pass, set, attack) and either type exact coordinates or grab a player in the 3D view and drop them where you want — the primary editing gesture. Undo/redo, save to your browser, diagnostics that catch a move no human could physically make or a ball that would clip the net before you even hit play.
 - **Deterministic playback.** Real closed-form ball arcs, pose-blended player movement, scrub/play/loop/speed controls. The same play looks identical every time — no randomness, no drift.
 - **Serve-receive planning.** Pick your passers (with adjustable range for a libero or primary passer), a serve origin, and see a live coverage heatmap over the whole receiving court — green where a passer can get there in time, red where no one can. Answers "can we handle a short serve to zone 2 in this rotation" as a real time-margin calculation, not a guess.
+- **Attack/defense matchups.** Pick an attack zone (4/3/2 for OH/MB/RS, or 6 for a back-row pipe) and a set tempo, and see the hitter's approach lane, whether the assigned block can actually get there in time ("blocker cannot reach: needs 1.05s, has 0.45s"), the resulting block shadow drawn live on the defending team's court with any defender caught standing in it flagged, and tip coverage for an assigned defender. Four defensive systems (perimeter/rotation/man-up/six-back) reposition the defending team on court and feed the same feasibility math.
 
 Players render as flat, orbit-camera-friendly humanoid silhouettes holding real volleyball stances (dig, block, attack, set, and more) on a real net (padded posts, a visible gap above the floor, banded top and bottom edges) and court you can freely rotate, pan, and zoom, plus five one-click camera presets (top-down, sideline, behind the endline, and two angled views), all reading from a swappable theme.
 
-**Not built yet:** attack/defense matchup analysis (block feasibility, approach lanes, tip coverage) — see [Roadmap](#roadmap).
+**Not built yet:** presentation mode, PNG export, static hosting — see [Roadmap](#roadmap).
 
 ## Status
 
-Phases 0-5 are done: scaffold, court/camera/silhouettes, the rotation engine, the play model and deterministic playback, a full authoring UI (timeline editor, step inspector, 3D drag-to-position, ball-path editing, undo/redo, save), and serve-receive coverage analysis. Phase 6 (attack/defense matchups) is next. See [Roadmap](#roadmap) below, and [HANDOFF.md](HANDOFF.md) for a working session's worth of context on where things stand, decisions made, and pitfalls already worked through.
+Phases 0-6 are done: scaffold, court/camera/silhouettes, the rotation engine, the play model and deterministic playback, a full authoring UI (timeline editor, step inspector, 3D drag-to-position, ball-path editing, undo/redo, save), serve-receive coverage analysis, and attack/defense matchup analysis. Phase 7 (polish and deploy) is next. See [Roadmap](#roadmap) below, and [HANDOFF.md](HANDOFF.md) for a working session's worth of context on where things stand, decisions made, and pitfalls already worked through.
 
 ## Tech stack
 
@@ -51,7 +52,7 @@ npm run build # production build
 - [x] **Phase 3.** Play model and deterministic playback — ball flight, compile/evaluate, diagnostics, pose-blended animation, 3 demo plays.
 - [x] **Phase 4.** Play authoring UI (timeline editor, step inspector, 3D drag-to-position, ball-path editing, undo/redo, save). A full play library view (browsing/managing every saved play, not just the picker dropdown) is still open.
 - [x] **Phase 5.** Serve-receive planner — weighted responsibility zones, seam detection, and the uncovered-area time-margin heatmap. No serve type/target picker or click-to-place target yet; the analysis covers the whole grid for a given serve origin rather than one aimed serve.
-- [ ] **Phase 6.** Attack/defense matchups (approach lanes, block feasibility, block shadow, tip coverage).
+- [x] **Phase 6.** Attack/defense matchups — approach lanes by role, block feasibility ("MB cannot reach the pin" style diagnostics), block shadow with defender-in-shadow flagging, tip coverage, and four defensive base formations. Open-angle (line/angle/seam) cone checks are implemented and tested in `core/tactics/block.ts` but not yet wired into a live overlay; no serve-type-aware set-call automation.
 - [ ] **Phase 7.** Polish and deploy (presentation mode, PNG export, static hosting).
 
 ## License

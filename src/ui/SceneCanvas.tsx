@@ -4,6 +4,9 @@ import { useLineupStore } from '@/app/store/useLineupStore';
 import { usePlaybackStore } from '@/app/store/usePlaybackStore';
 import { usePlayEditorStore } from '@/app/store/usePlayEditorStore';
 import { useServeReceiveStore } from '@/app/store/useServeReceiveStore';
+import { useMatchupStore } from '@/app/store/useMatchupStore';
+import { deriveMatchupState } from '@/app/deriveMatchupState';
+import { defensiveBase } from '@/core/tactics/defense.presets';
 import type { Play } from '@/core/play/types';
 import { deriveRotationState, effectivePosition } from '@/app/deriveRotationState';
 import { SceneRenderer } from '@/render/SceneRenderer';
@@ -129,6 +132,14 @@ export function SceneCanvas() {
   const srPasserSlots = useServeReceiveStore((s) => s.passerSlots);
   const srPasserWeights = useServeReceiveStore((s) => s.passerWeights);
   const srServeOriginZone = useServeReceiveStore((s) => s.serveOriginZone);
+
+  const matchupAttackingSide = useMatchupStore((s) => s.attackingSide);
+  const matchupAttackZone = useMatchupStore((s) => s.attackZone);
+  const matchupSetCall = useMatchupStore((s) => s.setCall);
+  const matchupLateralSign = useMatchupStore((s) => s.lateralSign);
+  const matchupBlockScheme = useMatchupStore((s) => s.blockScheme);
+  const matchupDefensiveSystem = useMatchupStore((s) => s.defensiveSystem);
+  const matchupTipDefenderSlot = useMatchupStore((s) => s.tipDefenderSlot);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -319,6 +330,52 @@ export function SceneCanvas() {
     bridge.setCoverageHeatmap(cells, srReceivingSide, SERVE_RECEIVE_CELL_SIZE_M);
   }, [playbackMode, srReceivingSide, srPasserSlots, srPasserWeights, srServeOriginZone, lineups, rosters, rotations, positionOverrides]);
 
+  // The matchup overlays (approach lane, block shadow, tip-coverage ring) —
+  // recomputed whenever the scenario or underlying lineup data changes,
+  // cleared whenever we leave that mode.
+  useEffect(() => {
+    const bridge = bridgeRef.current;
+    if (!bridge) return;
+
+    if (playbackMode !== 'matchup') {
+      bridge.setApproachLane([]);
+      bridge.setMatchupShadow([], null);
+      return;
+    }
+
+    const matchup = deriveMatchupState({
+      attackingSide: matchupAttackingSide,
+      attackZone: matchupAttackZone,
+      setCall: matchupSetCall,
+      lateralSign: matchupLateralSign,
+      blockScheme: matchupBlockScheme,
+      defensiveSystem: matchupDefensiveSystem,
+      tipDefenderSlot: matchupTipDefenderSlot,
+      rosters,
+      lineups,
+      rotations,
+    });
+
+    bridge.setApproachLane([
+      toWorld(matchup.approachLane.approachStart, matchupAttackingSide, 0),
+      toWorld(matchup.approachLane.takeoff, matchupAttackingSide, 0),
+      matchup.contactWorld,
+    ]);
+    bridge.setMatchupShadow(matchup.blockShadowPolygon, matchup.tipRegion);
+  }, [
+    playbackMode,
+    matchupAttackingSide,
+    matchupAttackZone,
+    matchupSetCall,
+    matchupLateralSign,
+    matchupBlockScheme,
+    matchupDefensiveSystem,
+    matchupTipDefenderSlot,
+    lineups,
+    rosters,
+    rotations,
+  ]);
+
   useEffect(() => {
     const bridge = bridgeRef.current;
     const renderer = rendererRef.current;
@@ -334,10 +391,35 @@ export function SceneCanvas() {
 
     tRef.current = 0;
     bridge.setBallState({ x: 0, y: 0, z: 0 }, false);
-    const scene = buildSceneState(theme, lineups, rosters, rotations, positionOverrides, previewPlayerId, previewPose);
+
+    // In matchup mode, the defending side's on-court spots reflect the
+    // chosen defensive system's base positions instead of their plain
+    // rotation anchors, so switching "Defense" is actually visible on court.
+    let sceneOverrides = positionOverrides;
+    if (playbackMode === 'matchup') {
+      const defendingSide = otherSide(matchupAttackingSide);
+      sceneOverrides = {
+        ...positionOverrides,
+        [defendingSide]: { ...positionOverrides[defendingSide], ...defensiveBase(matchupDefensiveSystem, matchupAttackZone) },
+      };
+    }
+
+    const scene = buildSceneState(theme, lineups, rosters, rotations, sceneOverrides, previewPlayerId, previewPose);
     bridge.setFormation(scene.placements);
     bridge.setViolationLinks(scene.violationLinks);
-  }, [themeId, lineups, rosters, rotations, positionOverrides, previewPlayerId, previewPose, playbackMode]);
+  }, [
+    themeId,
+    lineups,
+    rosters,
+    rotations,
+    positionOverrides,
+    previewPlayerId,
+    previewPose,
+    playbackMode,
+    matchupAttackingSide,
+    matchupDefensiveSystem,
+    matchupAttackZone,
+  ]);
 
   useEffect(() => {
     if (cameraRequestToken === 0) return; // skip the initial mount
