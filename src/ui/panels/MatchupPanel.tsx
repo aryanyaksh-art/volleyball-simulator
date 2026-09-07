@@ -148,7 +148,7 @@ export function MatchupPanel() {
       </p>
 
       {matchup.blockFeasibility.length === 0 ? (
-        <p className="panel-note">Release scheme — no block up, defense drops straight to coverage.</p>
+        <p className="panel-note">Release scheme: no block up, defense drops straight to coverage.</p>
       ) : (
         <table className="panel-table">
           <thead>
@@ -175,7 +175,7 @@ export function MatchupPanel() {
           Defenders in block shadow:{' '}
           {inShadowIds.size === 0 ? 'none' : Array.from(inShadowIds).join(', ')}
           {blockScheme !== 'bunch-read' && blockScheme !== 'bunch-commit' && inShadowIds.size > 0 && (
-            <span className="violation-warning"> — DEFENDER_IN_SHADOW under {blockScheme}</span>
+            <span className="violation-warning"> (DEFENDER_IN_SHADOW under {blockScheme})</span>
           )}
         </p>
       )}
@@ -184,7 +184,7 @@ export function MatchupPanel() {
         <p className={matchup.tipCoverage.covered ? 'panel-note margin-ok' : 'panel-note violation-error'}>
           {matchup.tipCoverage.covered
             ? `Tip covered (margin ${matchup.tipCoverage.marginM.toFixed(2)} m).`
-            : `TIP_UNCOVERED — short by ${Math.abs(matchup.tipCoverage.marginM).toFixed(2)} m.`}
+            : `TIP_UNCOVERED: short by ${Math.abs(matchup.tipCoverage.marginM).toFixed(2)} m.`}
         </p>
       )}
       {!matchup.tipCoverage && tipDefenderSlot == null && <p className="panel-note">Assign a tip defender to check tip coverage.</p>}

@@ -28,7 +28,7 @@ export function LineupPanel() {
 
   return (
     <div className="panel">
-      <h3 className="panel-title">Lineup — {lineup.name}</h3>
+      <h3 className="panel-title">Lineup: {lineup.name}</h3>
 
       <div className="control-group">
         <span className="control-label">System</span>
@@ -65,7 +65,7 @@ export function LineupPanel() {
               <td>{slot + 1}</td>
               <td>
                 <select value={playerId ?? ''} onChange={(e) => setOrderSlot(focusSide, slot, e.target.value || null)}>
-                  <option value="">— empty —</option>
+                  <option value="">(empty)</option>
                   {roster.players
                     .filter((p) => p.primaryRole !== 'L')
                     .map((p) => (

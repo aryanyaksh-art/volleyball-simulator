@@ -13,7 +13,7 @@ export function DiagnosticsPanel() {
     <div className="panel diagnostics-panel">
       <h3 className="panel-title">Diagnostics</h3>
       {clean ? (
-        <p className="validation-status validation-legal">No issues — every move is within its speed cap and the ball stays legal.</p>
+        <p className="validation-status validation-legal">No issues. Every move is within its speed cap and the ball stays legal.</p>
       ) : (
         <ul className="panel-warnings">
           {speedCapViolations.map((v, i) => (

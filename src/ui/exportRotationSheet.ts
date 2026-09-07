@@ -60,7 +60,7 @@ export const exportRotationSheet = async ({ canvas, side, teamLabel, currentRota
     const row = Math.floor(i / cols);
     const x = col * cellW;
     const y = row * (cellH + labelH);
-    ctx.fillText(`${teamLabel} — R${i + 1}`, x + cellW / 2, y + 28);
+    ctx.fillText(`${teamLabel}: R${i + 1}`, x + cellW / 2, y + 28);
     ctx.drawImage(img, x, y + labelH);
   });
 

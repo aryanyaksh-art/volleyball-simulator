@@ -18,7 +18,7 @@ export function ValidationPanel() {
 
   return (
     <div className="panel">
-      <h3 className="panel-title">Validation — R{rotation + 1}</h3>
+      <h3 className="panel-title">Validation: R{rotation + 1}</h3>
 
       {!alignment.checked && (
         <p className="panel-note">Not checked: {alignment.skippedReason}</p>

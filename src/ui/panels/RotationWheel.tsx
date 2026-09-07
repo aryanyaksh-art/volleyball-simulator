@@ -49,7 +49,7 @@ export function RotationWheel() {
                 <span className={alignment.checked && !alignment.legal ? 'legality-dot legality-bad' : 'legality-dot legality-ok'} />
               </div>
               <div className="rotation-tile-body">
-                <div>Setter: zone {breakdown.setterZone ?? '—'} ({breakdown.setterRow ?? '—'})</div>
+                <div>Setter: zone {breakdown.setterZone ?? 'n/a'} ({breakdown.setterRow ?? 'n/a'})</div>
                 <div>Front-row attackers: {breakdown.frontRowAttackerCount}</div>
               </div>
             </button>

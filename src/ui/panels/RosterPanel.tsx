@@ -6,7 +6,7 @@ export function RosterPanel() {
 
   return (
     <div className="panel">
-      <h3 className="panel-title">Roster — {roster.name}</h3>
+      <h3 className="panel-title">Roster: {roster.name}</h3>
       <table className="panel-table">
         <thead>
           <tr>

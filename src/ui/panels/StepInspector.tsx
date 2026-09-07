@@ -48,7 +48,7 @@ export function StepInspector() {
 
   return (
     <div className="panel">
-      <h3 className="panel-title">Step — {step.name}</h3>
+      <h3 className="panel-title">Step: {step.name}</h3>
 
       <div className="step-inspector-side">
         <h4 className="step-inspector-side-title">Ball</h4>

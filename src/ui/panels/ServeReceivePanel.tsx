@@ -141,7 +141,7 @@ export function ServeReceivePanel() {
               any passer can get there.
             </p>
           )}
-          {analysis.setterInSeam && <p className="panel-note violation-warning">SETTER_IN_SEAM — the setter's own zone sits in a seam.</p>}
+          {analysis.setterInSeam && <p className="panel-note violation-warning">SETTER_IN_SEAM: the setter's own zone sits in a seam.</p>}
         </>
       )}
     </div>

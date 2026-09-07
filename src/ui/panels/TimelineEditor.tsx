@@ -19,7 +19,7 @@ export function TimelineEditor() {
   return (
     <div className="panel">
       <div className="panel-title-row">
-        <h3 className="panel-title">Timeline — {play.name}</h3>
+        <h3 className="panel-title">Timeline: {play.name}</h3>
         <div className="control-group">
           <button className="chip" onClick={undo} disabled={!canUndo}>
             ↶ Undo
