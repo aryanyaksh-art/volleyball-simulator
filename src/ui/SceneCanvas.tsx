@@ -85,7 +85,7 @@ function buildSceneState(
         id,
         side,
         pos: worldById.get(p.onCourtId)!,
-        teamColor: isViolating ? theme.overlays.violation : theme.teams[side].body,
+        teamColor: isViolating ? theme.overlays.violation : p.isLibero ? theme.liberoColor : theme.teams[side].body,
         pose: id === previewPlayerId ? previewPose : poseForOnCourt(p.isServer, p.onCourtId === breakdown.setterOnCourtId),
       });
     }
@@ -107,6 +107,7 @@ export function SceneCanvas() {
   const bridgeRef = useRef<SceneBridge | null>(null);
   const dragControllerRef = useRef<PlayerDragController | null>(null);
   const scheduleRef = useRef<PlaySchedule | null>(null);
+  const liberoOnCourtIdsRef = useRef<Set<string>>(new Set());
   const worldStateRef = useRef<WorldState>(createWorldState());
   const tRef = useRef(0);
   const frameCountRef = useRef(0);
@@ -197,7 +198,7 @@ export function SceneCanvas() {
         id: p.onCourtId,
         side: p.side,
         pos: toWorld(p.pos, p.side, p.y),
-        teamColor: activeTheme.teams[p.side].body,
+        teamColor: liberoOnCourtIdsRef.current.has(p.onCourtId) ? activeTheme.liberoColor : activeTheme.teams[p.side].body,
         pose: p.pose,
         facingRad: p.facingRad,
       }));
@@ -272,6 +273,13 @@ export function SceneCanvas() {
     scheduleRef.current = schedule;
     usePlaybackStore.getState().setDuration(schedule.durationS);
     usePlaybackStore.getState().setDiagnostics(diagnosePlay(schedule));
+
+    const liberoIds = new Set<string>();
+    for (const side of SIDES) {
+      const b = breakdown(lineups[side], rosters[side], side, play.scenario.rotations[side]);
+      for (const p of b.onCourt) if (p.isLibero) liberoIds.add(p.onCourtId);
+    }
+    liberoOnCourtIdsRef.current = liberoIds;
 
     if (playbackMode !== 'author') tRef.current = 0;
   }, [lineups, rosters, selectedPlayId, playbackMode, editorPlay, savedPlays]);

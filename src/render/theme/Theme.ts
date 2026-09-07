@@ -40,6 +40,8 @@ export interface Theme {
     color: string;
     trailColor: string;
   };
+  /** One color, not per-team: a libero should stand out from their own teammates on either side, the way a real libero jersey contrasts with the rest of the team. */
+  liberoColor: string;
   overlays: {
     violation: string;
     responsibility: string[];

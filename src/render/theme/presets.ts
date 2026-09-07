@@ -19,6 +19,7 @@ const blueprint: Theme = {
     B: { body: '#33c7ff', accent: '#1f9fd6', label: 'Team B' },
   },
   ball: { color: '#ffd23f', trailColor: '#ffe9a8' },
+  liberoColor: '#ffffff',
   overlays: {
     violation: '#ff3b30',
     responsibility: ['#39ff6a', '#33c7ff', '#ffd23f', '#ff8fd8'],
@@ -50,6 +51,7 @@ const court: Theme = {
     B: { body: '#1f6feb', accent: '#194f9e', label: 'Team B' },
   },
   ball: { color: '#f2b134', trailColor: '#f7d38a' },
+  liberoColor: '#ffffff',
   overlays: {
     violation: '#ff5c4d',
     responsibility: ['#d1495b', '#1f6feb', '#f2b134', '#7bd389'],
@@ -75,6 +77,7 @@ const whiteboard: Theme = {
     B: { body: '#8f2d56', accent: '#c25b7f', label: 'Team B' },
   },
   ball: { color: '#f2542d', trailColor: '#f7a58a' },
+  liberoColor: '#101113',
   overlays: {
     violation: '#d62828',
     responsibility: ['#14213d', '#8f2d56', '#f2542d', '#2a9d8f'],
