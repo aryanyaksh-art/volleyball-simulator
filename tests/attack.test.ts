@@ -4,8 +4,11 @@ import {
   ATTACK_CONTACT_BY_ZONE,
   computeApproachLane,
   computeBlockFeasibility,
+  ROLE_TO_ZONE,
+  SET_TEMPO_APEX_M,
   SET_TEMPO_S,
   ZONE_TO_ROLE,
+  type SetCall,
 } from '@/core/tactics/attack';
 import { SPEED_CAP_MPS, REACTION_TIME_S } from '@/core/play/playerMotion';
 
@@ -47,6 +50,26 @@ describe('zone/role convention', () => {
 
   it('a pipe contact point sits well back from the net; pin zones sit close to it', () => {
     expect(ATTACK_CONTACT_BY_ZONE[6].depth).toBeGreaterThan(ATTACK_CONTACT_BY_ZONE[4].depth);
+  });
+});
+
+describe('ROLE_TO_ZONE', () => {
+  it('is the exact inverse of ZONE_TO_ROLE', () => {
+    for (const [zoneStr, role] of Object.entries(ZONE_TO_ROLE)) {
+      expect(ROLE_TO_ZONE[role]).toBe(Number(zoneStr));
+    }
+  });
+});
+
+describe('SET_TEMPO_APEX_M', () => {
+  it('has an entry for every set call', () => {
+    for (const call of Object.keys(SET_TEMPO_S) as SetCall[]) {
+      expect(SET_TEMPO_APEX_M[call]).toBeGreaterThan(0);
+    }
+  });
+
+  it('a high ball arcs higher than a quick set', () => {
+    expect(SET_TEMPO_APEX_M.high).toBeGreaterThan(SET_TEMPO_APEX_M.quick);
   });
 });
 

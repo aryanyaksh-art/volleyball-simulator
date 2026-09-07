@@ -9,6 +9,9 @@ export type AttackZone = 2 | 3 | 4 | 6;
 /** The standard zone-to-role convention this tool assumes: 4 outside, 3 middle, 2 right side/opposite, 6 pipe. */
 export const ZONE_TO_ROLE: Record<AttackZone, HitterRole> = { 4: 'OH', 3: 'MB', 2: 'RS', 6: 'pipe' };
 
+/** The reverse of ZONE_TO_ROLE — which zone a guided-mode "set to the outside hitter" style choice resolves to. */
+export const ROLE_TO_ZONE: Record<HitterRole, AttackZone> = { OH: 4, MB: 3, RS: 2, pipe: 6 };
+
 /** Approximate contact point by attack zone, team-local: front-row zones contact close to the net, a pipe contacts from depth. */
 export const ATTACK_CONTACT_BY_ZONE: Record<AttackZone, LocalPos> = {
   4: { lat: -3.0, depth: 0.5 },
@@ -82,6 +85,17 @@ export const SET_TEMPO_S = {
 } as const;
 
 export type SetCall = keyof typeof SET_TEMPO_S;
+
+/** Apex height per set call, in meters — a quick set arcs low and fast, a high ball loops well above the antenna height. Paired with SET_TEMPO_S's durations for the guided workflow's set-height defaults. */
+export const SET_TEMPO_APEX_M: Record<SetCall, number> = {
+  quick: 2.4,
+  '31': 2.7,
+  shoot: 2.9,
+  go: 3.2,
+  high: 3.8,
+  pipe: 4.2,
+  bic: 3.0,
+};
 
 export type BlockMode = 'shuffle' | 'crossover';
 
