@@ -423,6 +423,11 @@
   color: #ffffff;
 }
 
+.chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .control-bar select {
   background: #1f232a;
   color: #e6e6e6;

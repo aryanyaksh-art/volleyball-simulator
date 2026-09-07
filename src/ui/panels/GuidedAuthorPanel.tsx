@@ -179,7 +179,12 @@ export function GuidedAuthorPanel() {
                     Edit
                   </button>
                 )}
-                <button className="chip chip-small" onClick={() => removeStep(step.id)}>
+                <button
+                  className="chip chip-small"
+                  disabled={play.steps.length === 1}
+                  title={play.steps.length === 1 ? 'A play needs at least one step' : undefined}
+                  onClick={() => removeStep(step.id)}
+                >
                   Remove
                 </button>
               </div>
