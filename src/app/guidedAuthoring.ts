@@ -171,10 +171,17 @@ export const commitContactAction = (play: Play, params: CommitContactParams): Pl
     };
   }
 
+  // A step's duration has to cover its longest movement, or that movement's
+  // track segment runs past the step boundary compile.ts advances by,
+  // overlapping into the next step's own time range. Ball duration and
+  // movement duration used to always satisfy this by construction (a hold
+  // movement never took longer than its ball's flight); now that a serve or
+  // an arrival-chasing contact action can need a multi-second walk, the step
+  // has to explicitly stretch to fit it.
   const step: PlayStep = {
     id: crypto.randomUUID(),
     name: params.action[0].toUpperCase() + params.action.slice(1),
-    duration: params.stepDurationS ?? ball.duration ?? 1,
+    duration: params.stepDurationS ?? Math.max(ball.duration ?? 1, movement.duration ?? 0),
     ball,
     movements: [movement],
   };
@@ -211,7 +218,11 @@ export const commitPositionAction = (play: Play, params: CommitPositionParams): 
 
   const steps = [...play.steps];
   const last = steps[steps.length - 1];
-  steps[steps.length - 1] = { ...last, movements: [...last.movements, movement] };
+  steps[steps.length - 1] = {
+    ...last,
+    duration: Math.max(last.duration, movement.duration ?? 0),
+    movements: [...last.movements, movement],
+  };
   return { ...play, steps };
 };
 

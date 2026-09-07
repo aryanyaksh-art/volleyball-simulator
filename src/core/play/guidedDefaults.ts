@@ -25,7 +25,11 @@ export interface GuidedContactDefaults {
  * still editable afterward in Advanced mode.
  */
 export const GUIDED_CONTACT_DEFAULTS: Record<GuidedContactAction, GuidedContactDefaults> = {
-  serve: { profile: 'floatServe', apexM: 3.2, ballDurationS: 1.1, movementMode: 'approach', movementDurationS: 0.35, pose: 'serveContact' },
+  // movementDurationS is generous (unlike the other contact actions' short
+  // hold-turned-move durations) because a serve now genuinely walks from
+  // wherever the server's zone is to behind the endline — up to ~11m for a
+  // front-row zone — instead of a near-instant repositioning.
+  serve: { profile: 'floatServe', apexM: 3.2, ballDurationS: 1.1, movementMode: 'approach', movementDurationS: 2.2, pose: 'serveContact' },
   pass: { profile: 'pass', apexM: 3.0, ballDurationS: 0.9, movementMode: 'shuffle', movementDurationS: 0.5, pose: 'passLow' },
   set: { profile: 'quick', apexM: 2.7, ballDurationS: 0.75, movementMode: 'sprint', movementDurationS: 0.4, pose: 'set' },
   attack: {

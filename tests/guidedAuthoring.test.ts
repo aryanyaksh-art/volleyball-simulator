@@ -94,6 +94,13 @@ describe('commitContactAction — walking to the ball instead of standing still'
     expect(attackMovement.to).toMatchObject({ kind: 'local', side: 'B', pos: { lat: -3, depth: 1.6 } }); // zone 4 anchor
   });
 
+  it("stretches the step to cover a movement longer than the ball's own flight, so the track segment can't overrun the step boundary", () => {
+    const play = commitContactAction(blankPlay(), { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0, depth: -6.6 } });
+    const step = play.steps[0];
+    expect(step.duration).toBeGreaterThanOrEqual(step.movements[0].duration ?? 0);
+    expect(step.duration).toBeGreaterThanOrEqual(step.ball?.duration ?? 0);
+  });
+
   it('falls back to holding position for the very first ball touch (nothing incoming yet)', () => {
     const play = commitContactAction(blankPlay(), { action: 'pass', onCourtId: 'B:5', side: 'B', target: { lat: 1.5, depth: 2.0 } });
     expect(play.steps[0].movements[0].to).toEqual({ kind: 'atPlayer', who: { side: 'B', kind: 'slot', index: 5 }, contact: 'feet' });
