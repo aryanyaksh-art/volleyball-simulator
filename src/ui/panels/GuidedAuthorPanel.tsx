@@ -27,6 +27,7 @@ const POSITION_ACTIONS: GuidedAction[] = ['block', 'dig', 'move'];
 const isContactAction = (action: GuidedAction): action is GuidedContactAction => (CONTACT_ACTIONS as GuidedAction[]).includes(action);
 const HITTER_ROLES: HitterRole[] = ['OH', 'MB', 'RS', 'pipe'];
 const SET_CALLS = Object.keys(SET_TEMPO_S) as SetCall[];
+const SIDES: Side[] = ['A', 'B'];
 
 /** "A:1" -> "#3 Outside 1" style label, falling back to the raw id if the roster/lineup lookup comes up empty (e.g. a slot with no one assigned). */
 function playerLabel(onCourtId: string, rosters: ReturnType<typeof useLineupStore.getState>['rosters'], lineups: ReturnType<typeof useLineupStore.getState>['lineups'], rotations: ReturnType<typeof useLineupStore.getState>['rotations']): string {
@@ -50,12 +51,25 @@ export function GuidedAuthorPanel() {
   const pendingAction = useGuidedAuthorStore((s) => s.pendingAction);
   const pendingTarget = useGuidedAuthorStore((s) => s.pendingTarget);
   const editingStepId = useGuidedAuthorStore((s) => s.editingStepId);
+  const pendingBenchSwap = useGuidedAuthorStore((s) => s.pendingBenchSwap);
   const choosePendingAction = useGuidedAuthorStore((s) => s.choosePendingAction);
   const setPendingTarget = useGuidedAuthorStore((s) => s.setPendingTarget);
   const startEditingStep = useGuidedAuthorStore((s) => s.startEditingStep);
+  const toggleBenchSwap = useGuidedAuthorStore((s) => s.toggleBenchSwap);
   const reset = useGuidedAuthorStore((s) => s.reset);
 
   const side = useMemo(() => (selectedOnCourtId ? (selectedOnCourtId.split(':')[0] as Side) : null), [selectedOnCourtId]);
+
+  // Liberos are left off, same rule BenchPanel uses: they swap in automatically
+  // via the lineup's rotation-driven assignment, never manually benched.
+  const benchBySide = useMemo(() => {
+    const out: Record<Side, { id: string; number: number; name: string }[]> = { A: [], B: [] };
+    for (const s of SIDES) {
+      const onCourtIds = new Set(lineups[s].order.filter((id): id is string => id != null));
+      out[s] = rosters[s].players.filter((p) => p.primaryRole !== 'L' && !onCourtIds.has(p.id));
+    }
+    return out;
+  }, [rosters, lineups]);
 
   if (!play) return null;
 
@@ -106,7 +120,13 @@ export function GuidedAuthorPanel() {
           {editingStepId ? 'Editing' : 'Selected'}: {playerLabel(selectedOnCourtId, rosters, lineups, rotations)}
         </p>
       )}
-      {!selectedOnCourtId && <p className="panel-note">Click a player in the 3D view to choose their action.</p>}
+      {!selectedOnCourtId && !pendingBenchSwap && <p className="panel-note">Click a player in the 3D view to choose their action.</p>}
+      {pendingBenchSwap && (
+        <p className="panel-note">
+          Click an on-court side {pendingBenchSwap.side} player to bring on{' '}
+          {findPlayer(rosters[pendingBenchSwap.side], pendingBenchSwap.playerId)?.name ?? 'this player'}.
+        </p>
+      )}
 
       {selectedOnCourtId && !pendingAction && (
         <div className="control-group">
@@ -151,6 +171,30 @@ export function GuidedAuthorPanel() {
       )}
 
       {selectedOnCourtId && pendingAction === 'set' && <SetChooser onConfirm={confirmContact} onCancel={reset} />}
+
+      <hr className="guided-divider" />
+
+      <div className="guided-bench">
+        <h4 className="panel-subtitle">Bench</h4>
+        {SIDES.map((s) => (
+          <div key={s} className="control-group">
+            <span className="control-label">{s}</span>
+            {benchBySide[s].length === 0 ? (
+              <span className="panel-note">Everyone's on the court.</span>
+            ) : (
+              benchBySide[s].map((p) => (
+                <button
+                  key={p.id}
+                  className={pendingBenchSwap?.playerId === p.id ? 'chip chip-small chip-active' : 'chip chip-small'}
+                  onClick={() => toggleBenchSwap({ side: s, playerId: p.id })}
+                >
+                  #{p.number} {p.name}
+                </button>
+              ))
+            )}
+          </div>
+        ))}
+      </div>
 
       <hr className="guided-divider" />
 

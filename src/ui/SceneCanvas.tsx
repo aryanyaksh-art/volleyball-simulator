@@ -327,7 +327,18 @@ export function SceneCanvas() {
         const playback = usePlaybackStore.getState();
         return playback.mode === 'author' && !useAppStore.getState().authorAdvancedMode;
       },
-      onSelectPlayer: (id) => useGuidedAuthorStore.getState().selectPlayer(id),
+      onSelectPlayer: (id) => {
+        const guided = useGuidedAuthorStore.getState();
+        const swap = guided.pendingBenchSwap;
+        if (swap) {
+          const [clickedSide, slotStr] = id.split(':') as [Side, string];
+          if (clickedSide !== swap.side) return; // wrong team's court — wait for a same-side click
+          useLineupStore.getState().setOrderSlot(swap.side, Number(slotStr), swap.playerId);
+          guided.reset();
+          return;
+        }
+        guided.selectPlayer(id);
+      },
       onSelectFloor: (worldPos) => {
         const guided = useGuidedAuthorStore.getState();
         if (!guided.selectedOnCourtId || !guided.pendingAction) return;
