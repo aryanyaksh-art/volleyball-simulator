@@ -17,6 +17,14 @@ interface AppState {
   setPreviewPlayerId: (id: string) => void;
   previewPose: PoseId;
   setPreviewPose: (pose: PoseId) => void;
+
+  /** Panels hidden, large touch-first transport — for showing a play to a team at practice, not editing it. */
+  presentationMode: boolean;
+  togglePresentationMode: () => void;
+
+  /** The live renderer's canvas element, registered by SceneCanvas on mount — what the PNG rotation-sheet export reads pixels from. */
+  sceneCanvasEl: HTMLCanvasElement | null;
+  setSceneCanvasEl: (el: HTMLCanvasElement | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -31,6 +39,12 @@ export const useAppStore = create<AppState>((set) => ({
   setPreviewPlayerId: (id) => set({ previewPlayerId: id }),
   previewPose: 'idle',
   setPreviewPose: (pose) => set({ previewPose: pose }),
+
+  presentationMode: false,
+  togglePresentationMode: () => set((s) => ({ presentationMode: !s.presentationMode })),
+
+  sceneCanvasEl: null,
+  setSceneCanvasEl: (el) => set({ sceneCanvasEl: el }),
 }));
 
 // Dev-only escape hatch for driving the store from devtools/automation

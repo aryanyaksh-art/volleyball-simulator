@@ -1,6 +1,7 @@
 import { usePlaybackStore } from '@/app/store/usePlaybackStore';
 import { usePlayEditorStore } from '@/app/store/usePlayEditorStore';
 import { useLineupStore } from '@/app/store/useLineupStore';
+import { useAppStore } from '@/app/store/useAppStore';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
 import type { Play } from '@/core/play/types';
 
@@ -34,6 +35,7 @@ export function TransportBar() {
   const setSpeed = usePlaybackStore((s) => s.setSpeed);
   const loop = usePlaybackStore((s) => s.loop);
   const setLoop = usePlaybackStore((s) => s.setLoop);
+  const togglePresentationMode = useAppStore((s) => s.togglePresentationMode);
 
   const editorPlay = usePlayEditorStore((s) => s.play);
   const loadPlay = usePlayEditorStore((s) => s.loadPlay);
@@ -149,6 +151,9 @@ export function TransportBar() {
         </button>
         <button className="chip" onClick={editSelectedPlay}>
           ✎ Edit this play
+        </button>
+        <button className="chip" onClick={togglePresentationMode}>
+          🖥 Present
         </button>
       </div>
       <div className="control-group">
