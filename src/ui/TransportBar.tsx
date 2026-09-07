@@ -130,7 +130,7 @@ export function TransportBar() {
             ▶ Preview demo play
           </button>
           <button className="chip" onClick={startNewPlay}>
-            ✎ New play
+            🏐 Design play
           </button>
           <button className="chip" onClick={() => setMode('serve-receive')}>
             🎯 Serve-receive

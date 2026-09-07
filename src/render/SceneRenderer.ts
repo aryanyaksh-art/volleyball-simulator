@@ -19,6 +19,7 @@ export class SceneRenderer {
 
   constructor(container: HTMLElement, backgroundColor: string, initialPreset: CameraPresetId = 'angledA') {
     this.container = container;
+    if (import.meta.env.DEV) (window as unknown as { __THREE: typeof THREE }).__THREE = THREE;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(backgroundColor);

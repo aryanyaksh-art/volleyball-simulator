@@ -79,6 +79,9 @@ interface PlayEditorState {
 
   saveCurrentPlay: () => void;
   deleteSavedPlay: (id: string) => void;
+
+  /** Applies any whole-play mutation (e.g. guided authoring's commitContactAction/commitPositionAction) through the same undo/redo history every other edit here goes through. */
+  applyGuidedAction: (mutator: (play: Play) => Play) => void;
 }
 
 /** Pushes the current play onto the undo stack, clears redo, then applies a mutation. */
@@ -237,6 +240,8 @@ export const usePlayEditorStore = create<PlayEditorState>((set, get) => {
         // ignore
       }
     },
+
+    applyGuidedAction: (mutator) => mutate(mutator),
   };
 });
 

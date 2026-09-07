@@ -20,6 +20,8 @@ import { otherSide, toLocal, toWorld, type LocalPos, type Side } from '@/core/co
 import { PlayerDragController } from '@/render/PlayerDragController';
 import { BenchDragController } from '@/render/BenchDragController';
 import { playerSlotInZone } from '@/core/lineup/rotation';
+import { GuidedPlayController } from '@/render/GuidedPlayController';
+import { useGuidedAuthorStore } from '@/app/store/useGuidedAuthorStore';
 import type { ZoneNumber } from '@/core/court/zones';
 import type { PoseId } from '@/core/play/poses';
 import type { Lineup } from '@/core/lineup/types';
@@ -129,6 +131,7 @@ export function SceneCanvas() {
   const bridgeRef = useRef<SceneBridge | null>(null);
   const dragControllerRef = useRef<PlayerDragController | null>(null);
   const benchDragControllerRef = useRef<BenchDragController | null>(null);
+  const guidedPlayControllerRef = useRef<GuidedPlayController | null>(null);
   const scheduleRef = useRef<PlaySchedule | null>(null);
   const liberoOnCourtIdsRef = useRef<Set<string>>(new Set());
   const worldStateRef = useRef<WorldState>(createWorldState());
@@ -308,9 +311,29 @@ export function SceneCanvas() {
     });
     benchDragControllerRef.current = benchDragController;
 
+    const guidedPlayController = new GuidedPlayController({
+      domElement: renderer.renderer.domElement,
+      camera: renderer.cameraRig.camera,
+      getClickables: () => bridge.getPlayerRoots(),
+      isEnabled: () => {
+        const playback = usePlaybackStore.getState();
+        return playback.mode === 'author' && !useAppStore.getState().authorAdvancedMode;
+      },
+      onSelectPlayer: (id) => useGuidedAuthorStore.getState().selectPlayer(id),
+      onSelectFloor: (worldPos) => {
+        const guided = useGuidedAuthorStore.getState();
+        if (!guided.selectedOnCourtId || !guided.pendingAction) return;
+        const floorSide = guided.selectedOnCourtId.split(':')[0] as Side;
+        const local = toLocal({ x: worldPos.x, y: 0, z: worldPos.z }, floorSide);
+        guided.setPendingTarget({ lat: local.lat, depth: local.depth });
+      },
+    });
+    guidedPlayControllerRef.current = guidedPlayController;
+
     return () => {
       dragController.dispose();
       benchDragController.dispose();
+      guidedPlayController.dispose();
       bridge.dispose();
       renderer.dispose();
       rendererRef.current = null;
