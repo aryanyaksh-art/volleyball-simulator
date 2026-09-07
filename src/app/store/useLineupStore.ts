@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { LocalPos, Side } from '@/core/court/coordinates';
 import type { ZoneNumber } from '@/core/court/zones';
-import type { Roster } from '@/core/roster/types';
+import type { Roster, RosterPlayer } from '@/core/roster/types';
 import type { Lineup, LineupSystem } from '@/core/lineup/types';
 import { DEMO_ROSTER_A, DEMO_ROSTER_B } from '@/fixtures/demoRoster';
 import { DEMO_LINEUP_A, DEMO_LINEUP_B } from '@/fixtures/demoLineup';
@@ -26,6 +26,10 @@ interface LineupState {
   setOrderSlot: (side: Side, slot: number, playerId: string | null) => void;
   setPositionOverride: (side: Side, zone: ZoneNumber, pos: LocalPos) => void;
   resetPositionOverrides: (side: Side) => void;
+  /** Adds a new roster player (a sub with real bench depth) — a fresh id is generated, never provided by the caller. */
+  addPlayer: (side: Side, player: Omit<RosterPlayer, 'id'>) => void;
+  /** Drops a player from the roster entirely. Clears them out of the lineup's serve order and libero assignment first, if they were in either — a roster can't reference a player that no longer exists. */
+  removePlayer: (side: Side, playerId: string) => void;
 }
 
 export const useLineupStore = create<LineupState>((set) => ({
@@ -57,6 +61,27 @@ export const useLineupStore = create<LineupState>((set) => ({
 
   resetPositionOverrides: (side) =>
     set((s) => ({ positionOverrides: { ...s.positionOverrides, [side]: {} } })),
+
+  addPlayer: (side, player) =>
+    set((s) => {
+      const id = `${side}-${crypto.randomUUID().slice(0, 8)}`;
+      const roster = s.rosters[side];
+      return {
+        rosters: { ...s.rosters, [side]: { ...roster, players: [...roster.players, { ...player, id }] } },
+      };
+    }),
+
+  removePlayer: (side, playerId) =>
+    set((s) => {
+      const roster = s.rosters[side];
+      const lineup = s.lineups[side];
+      const order = lineup.order.map((id) => (id === playerId ? null : id));
+      const liberos = lineup.liberos.filter((l) => l.liberoPlayerId !== playerId);
+      return {
+        rosters: { ...s.rosters, [side]: { ...roster, players: roster.players.filter((p) => p.id !== playerId) } },
+        lineups: { ...s.lineups, [side]: { ...lineup, order, liberos } },
+      };
+    }),
 }));
 
 // Dev-only escape hatch, same pattern as useAppStore — lets automation/devtools
