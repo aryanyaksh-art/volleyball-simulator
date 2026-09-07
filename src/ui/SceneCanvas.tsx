@@ -18,6 +18,8 @@ import { THEME_PRESETS } from '@/render/theme/presets';
 import type { Theme } from '@/render/theme/Theme';
 import { otherSide, toLocal, toWorld, type LocalPos, type Side } from '@/core/court/coordinates';
 import { PlayerDragController } from '@/render/PlayerDragController';
+import { BenchDragController } from '@/render/BenchDragController';
+import { playerSlotInZone } from '@/core/lineup/rotation';
 import type { ZoneNumber } from '@/core/court/zones';
 import type { PoseId } from '@/core/play/poses';
 import type { Lineup } from '@/core/lineup/types';
@@ -126,6 +128,7 @@ export function SceneCanvas() {
   const rendererRef = useRef<SceneRenderer | null>(null);
   const bridgeRef = useRef<SceneBridge | null>(null);
   const dragControllerRef = useRef<PlayerDragController | null>(null);
+  const benchDragControllerRef = useRef<BenchDragController | null>(null);
   const scheduleRef = useRef<PlaySchedule | null>(null);
   const liberoOnCourtIdsRef = useRef<Set<string>>(new Set());
   const worldStateRef = useRef<WorldState>(createWorldState());
@@ -264,8 +267,50 @@ export function SceneCanvas() {
     });
     dragControllerRef.current = dragController;
 
+    const benchDragController = new BenchDragController({
+      domElement: renderer.renderer.domElement,
+      camera: renderer.cameraRig.camera,
+      getDraggables: () => [...bridge.getPlayerRoots(), ...bridge.getBenchRoots()],
+      isEnabled: () => usePlaybackStore.getState().mode === 'formation',
+      setOrbitEnabled: (enabled) => {
+        renderer.cameraRig.controls.enabled = enabled;
+      },
+      onDrop: (sourceId, target) => {
+        if (!target) return;
+        const lineupState = useLineupStore.getState();
+
+        if (sourceId.startsWith('bench:')) {
+          const [, side, playerId] = sourceId.split(':') as [string, Side, string];
+          if (target.kind !== 'zone' || target.side !== side) return;
+          const slot = playerSlotInZone(lineupState.rotations[side], target.zone);
+          lineupState.setOrderSlot(side, slot, playerId);
+          return;
+        }
+
+        const [side, zoneStr] = sourceId.split(':') as [Side, string];
+        const sourceZone = Number(zoneStr) as ZoneNumber;
+        const rotation = lineupState.rotations[side];
+        const sourceSlot = playerSlotInZone(rotation, sourceZone);
+
+        if (target.kind === 'bench') {
+          if (target.side !== side) return;
+          lineupState.setOrderSlot(side, sourceSlot, null);
+          return;
+        }
+
+        if (target.side !== side || target.zone === sourceZone) return;
+        const targetSlot = playerSlotInZone(rotation, target.zone);
+        const displacedPlayerId = lineupState.lineups[side].order[targetSlot];
+        const movingPlayerId = lineupState.lineups[side].order[sourceSlot];
+        lineupState.setOrderSlot(side, targetSlot, movingPlayerId);
+        lineupState.setOrderSlot(side, sourceSlot, displacedPlayerId);
+      },
+    });
+    benchDragControllerRef.current = benchDragController;
+
     return () => {
       dragController.dispose();
+      benchDragController.dispose();
       bridge.dispose();
       renderer.dispose();
       rendererRef.current = null;
