@@ -44,6 +44,8 @@ export interface Theme {
   liberoColor: string;
   /** Dimmed color for players on the bench, in every theme. */
   benchColor: string;
+  /** Guided authoring only: a player who already has an action somewhere in the play being built turns this color, so a coach can see who's covered at a glance. */
+  guidedDoneColor: string;
   overlays: {
     violation: string;
     responsibility: string[];

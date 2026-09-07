@@ -489,6 +489,118 @@
   font-variant-numeric: tabular-nums;
 }
 
+.guided-review-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #22262d;
+}
+
+.guided-review-row-active {
+  background: rgba(76, 116, 189, 0.12);
+  border-radius: 6px;
+}
+
+.guided-review-row .panel-note {
+  margin: 0;
+  flex: 1;
+}
+
+.guided-review-row .control-group {
+  flex-shrink: 0;
+}
+
+.chip-small {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.guided-target-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.guided-target-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.topdown-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.topdown-svg {
+  background: #0c0f13;
+  border: 1px solid #303640;
+  border-radius: 4px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.topdown-court-own {
+  fill: rgba(76, 116, 189, 0.14);
+  stroke: #4a5058;
+  stroke-width: 1;
+}
+
+.topdown-court-opponent {
+  fill: rgba(255, 255, 255, 0.04);
+  stroke: #4a5058;
+  stroke-width: 1;
+}
+
+.topdown-freezone {
+  fill: rgba(255, 255, 255, 0.02);
+}
+
+.topdown-attackline {
+  stroke: #4a5058;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.topdown-net {
+  stroke: #eef2f5;
+  stroke-width: 2;
+}
+
+.topdown-zone-dot {
+  fill: #4a5058;
+}
+
+.topdown-zone-label {
+  font-size: 6px;
+  fill: #8a919c;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.topdown-marker {
+  fill: #ffcf40;
+  stroke: #0c0f13;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.topdown-marker-off {
+  fill: #ff3b30;
+}
+
+.topdown-label {
+  font-size: 11px;
+  color: #cfd4dc;
+  font-variant-numeric: tabular-nums;
+}
+
 .advanced-toggle {
   position: absolute;
   top: 12px;

@@ -59,6 +59,47 @@ describe('commitPositionAction', () => {
   });
 });
 
+describe('commitContactAction — walking to the ball instead of standing still', () => {
+  it('places a serve behind the endline, not at the player\'s on-court spot', () => {
+    const play = commitContactAction(blankPlay(), { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0, depth: -6.6 } });
+    const movement = play.steps[0].movements[0];
+    expect(movement.to).toMatchObject({ kind: 'local', side: 'A' });
+    if (movement.to.kind !== 'local') throw new Error('expected a local target');
+    expect(movement.to.pos.depth).toBeGreaterThan(9); // past halfLengthM (9) — outside the court
+    const ball = play.steps[0].ball!;
+    expect(ball.from).toEqual({ kind: 'local', side: 'A', pos: movement.to.pos, y: expect.any(Number) });
+  });
+
+  it('walks the next contact player to wherever the previous ball actually lands', () => {
+    let play = commitContactAction(blankPlay(), { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0.5, depth: -4.2 } });
+    play = commitContactAction(play, { action: 'pass', onCourtId: 'B:5', side: 'B', target: { lat: 1.5, depth: 2.0 } });
+
+    const passMovement = play.steps[1].movements[0];
+    expect(passMovement.to).toMatchObject({ kind: 'local', side: 'B' });
+    if (passMovement.to.kind !== 'local') throw new Error('expected a local target');
+    // The serve landed at side A's (lat 0.5, depth -4.2); from side B's own
+    // frame (toLocal negates both axes) that's (lat -0.5, depth 4.2).
+    expect(passMovement.to.pos.lat).toBeCloseTo(-0.5);
+    expect(passMovement.to.pos.depth).toBeCloseTo(4.2);
+
+    const passBall = play.steps[1].ball!;
+    expect(passBall.from).toMatchObject({ kind: 'local', side: 'B', pos: passMovement.to.pos });
+  });
+
+  it('walks an attacker to the set\'s zone anchor', () => {
+    let play = commitContactAction(blankPlay(), { action: 'set', onCourtId: 'B:0', side: 'B', setTarget: { role: 'OH', tempo: '31' } });
+    play = commitContactAction(play, { action: 'attack', onCourtId: 'B:1', side: 'B', target: { lat: -3, depth: -1 } });
+
+    const attackMovement = play.steps[1].movements[0];
+    expect(attackMovement.to).toMatchObject({ kind: 'local', side: 'B', pos: { lat: -3, depth: 1.6 } }); // zone 4 anchor
+  });
+
+  it('falls back to holding position for the very first ball touch (nothing incoming yet)', () => {
+    const play = commitContactAction(blankPlay(), { action: 'pass', onCourtId: 'B:5', side: 'B', target: { lat: 1.5, depth: 2.0 } });
+    expect(play.steps[0].movements[0].to).toEqual({ kind: 'atPlayer', who: { side: 'B', kind: 'slot', index: 5 }, contact: 'feet' });
+  });
+});
+
 describe('describeStep', () => {
   it('describes a serve in plain language', () => {
     const play = commitContactAction(blankPlay(), { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0, depth: -6.6 } });

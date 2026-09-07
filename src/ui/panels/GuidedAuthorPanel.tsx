@@ -1,11 +1,20 @@
 import { useMemo } from 'react';
 import { usePlayEditorStore } from '@/app/store/usePlayEditorStore';
 import { useGuidedAuthorStore } from '@/app/store/useGuidedAuthorStore';
-import { commitContactAction, commitPositionAction, describeStep, type SetTarget } from '@/app/guidedAuthoring';
+import {
+  commitContactAction,
+  commitPositionAction,
+  describeStep,
+  guidedEditFromStep,
+  removeGuidedStep,
+  spliceGuidedStepReplacement,
+  type SetTarget,
+} from '@/app/guidedAuthoring';
 import type { GuidedAction, GuidedContactAction } from '@/core/play/guidedDefaults';
 import type { HitterRole, SetCall } from '@/core/tactics/attack';
 import { SET_TEMPO_S } from '@/core/tactics/attack';
 import { SideHeightPicker } from '@/ui/SideHeightPicker';
+import { TopDownTargetPicker } from '@/ui/TopDownTargetPicker';
 import { GUIDED_CONTACT_DEFAULTS } from '@/core/play/guidedDefaults';
 import { usePlaybackStore } from '@/app/store/usePlaybackStore';
 import { breakdown } from '@/core/lineup/systems';
@@ -15,6 +24,7 @@ import type { Side } from '@/core/court/coordinates';
 
 const CONTACT_ACTIONS: GuidedContactAction[] = ['serve', 'pass', 'set', 'attack', 'tip'];
 const POSITION_ACTIONS: GuidedAction[] = ['block', 'dig', 'move'];
+const isContactAction = (action: GuidedAction): action is GuidedContactAction => (CONTACT_ACTIONS as GuidedAction[]).includes(action);
 const HITTER_ROLES: HitterRole[] = ['OH', 'MB', 'RS', 'pipe'];
 const SET_CALLS = Object.keys(SET_TEMPO_S) as SetCall[];
 
@@ -39,8 +49,10 @@ export function GuidedAuthorPanel() {
   const selectedOnCourtId = useGuidedAuthorStore((s) => s.selectedOnCourtId);
   const pendingAction = useGuidedAuthorStore((s) => s.pendingAction);
   const pendingTarget = useGuidedAuthorStore((s) => s.pendingTarget);
+  const editingStepId = useGuidedAuthorStore((s) => s.editingStepId);
   const choosePendingAction = useGuidedAuthorStore((s) => s.choosePendingAction);
   const setPendingTarget = useGuidedAuthorStore((s) => s.setPendingTarget);
+  const startEditingStep = useGuidedAuthorStore((s) => s.startEditingStep);
   const reset = useGuidedAuthorStore((s) => s.reset);
 
   const side = useMemo(() => (selectedOnCourtId ? (selectedOnCourtId.split(':')[0] as Side) : null), [selectedOnCourtId]);
@@ -49,29 +61,51 @@ export function GuidedAuthorPanel() {
 
   const confirmContact = (setTarget?: SetTarget) => {
     if (!selectedOnCourtId || !side || !pendingAction) return;
+    const replacingStepId = editingStepId;
     if (pendingAction === 'block' || pendingAction === 'dig' || pendingAction === 'move') {
       if (!pendingTarget) return;
-      applyGuidedAction((p) => commitPositionAction(p, { action: pendingAction, onCourtId: selectedOnCourtId, side, target: pendingTarget }));
+      applyGuidedAction((p) => {
+        const next = commitPositionAction(p, { action: pendingAction, onCourtId: selectedOnCourtId, side, target: pendingTarget });
+        return replacingStepId ? spliceGuidedStepReplacement(p, next, replacingStepId) : next;
+      });
     } else {
       if (pendingAction !== 'set' && !pendingTarget) return;
-      applyGuidedAction((p) =>
-        commitContactAction(p, {
+      applyGuidedAction((p) => {
+        const next = commitContactAction(p, {
           action: pendingAction,
           onCourtId: selectedOnCourtId,
           side,
           target: pendingTarget ?? undefined,
           setTarget,
-        }),
-      );
+        });
+        return replacingStepId ? spliceGuidedStepReplacement(p, next, replacingStepId) : next;
+      });
     }
     reset();
+  };
+
+  const editStep = (stepId: string) => {
+    const step = play.steps.find((s) => s.id === stepId);
+    if (!step) return;
+    const edit = guidedEditFromStep(step);
+    if (!edit) return;
+    startEditingStep(stepId, edit);
+  };
+
+  const removeStep = (stepId: string) => {
+    applyGuidedAction((p) => removeGuidedStep(p, stepId));
+    if (editingStepId === stepId) reset();
   };
 
   return (
     <div className="panel guided-author-panel">
       <h3 className="panel-title">Design play</h3>
 
-      {selectedOnCourtId && <p className="panel-note">Selected: {playerLabel(selectedOnCourtId, rosters, lineups, rotations)}</p>}
+      {selectedOnCourtId && (
+        <p className="panel-note">
+          {editingStepId ? 'Editing' : 'Selected'}: {playerLabel(selectedOnCourtId, rosters, lineups, rotations)}
+        </p>
+      )}
       {!selectedOnCourtId && <p className="panel-note">Click a player in the 3D view to choose their action.</p>}
 
       {selectedOnCourtId && !pendingAction && (
@@ -87,23 +121,36 @@ export function GuidedAuthorPanel() {
         </div>
       )}
 
-      {selectedOnCourtId && pendingAction && pendingAction !== 'set' && !pendingTarget && (
-        <p className="panel-note">Click a spot on the court for this {pendingAction}.</p>
-      )}
-
-      {selectedOnCourtId && pendingAction && pendingAction !== 'set' && pendingTarget && (
-        <div className="control-group">
-          <SideHeightPicker
-            apexM={pendingTarget.apexM ?? GUIDED_CONTACT_DEFAULTS[pendingAction as GuidedContactAction]?.apexM ?? 2}
-            onChange={(apexM) => setPendingTarget({ ...pendingTarget, apexM })}
-          />
-          <button className="chip chip-active" onClick={() => confirmContact()}>
-            Confirm
-          </button>
+      {selectedOnCourtId && pendingAction && pendingAction !== 'set' && (
+        <div className="control-group guided-target-group">
+          <div>
+            <p className="panel-note">Click a spot on the court, or place it on the map.</p>
+            <TopDownTargetPicker
+              lat={pendingTarget?.lat ?? 0}
+              depth={pendingTarget?.depth ?? 0}
+              onChange={(lat, depth) => setPendingTarget({ ...(pendingTarget ?? {}), lat, depth })}
+            />
+          </div>
+          {pendingTarget && (
+            <div className="guided-target-confirm">
+              {isContactAction(pendingAction) && (
+                <SideHeightPicker
+                  apexM={pendingTarget.apexM ?? GUIDED_CONTACT_DEFAULTS[pendingAction as GuidedContactAction]?.apexM ?? 2}
+                  onChange={(apexM) => setPendingTarget({ ...pendingTarget, apexM })}
+                />
+              )}
+              <button className="chip chip-active" onClick={() => confirmContact()}>
+                Confirm
+              </button>
+              <button className="chip" onClick={reset}>
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {selectedOnCourtId && pendingAction === 'set' && <SetChooser onConfirm={confirmContact} />}
+      {selectedOnCourtId && pendingAction === 'set' && <SetChooser onConfirm={confirmContact} onCancel={reset} />}
 
       <hr className="guided-divider" />
 
@@ -121,11 +168,24 @@ export function GuidedAuthorPanel() {
       </div>
 
       <div className="guided-review">
-        {play.steps.map((step) => (
-          <p key={step.id} className="panel-note">
-            {describeStep(step)}
-          </p>
-        ))}
+        {play.steps.map((step) => {
+          const editable = guidedEditFromStep(step) != null;
+          return (
+            <div key={step.id} className={editingStepId === step.id ? 'guided-review-row guided-review-row-active' : 'guided-review-row'}>
+              <p className="panel-note">{describeStep(step)}</p>
+              <div className="control-group">
+                {editable && (
+                  <button className="chip chip-small" onClick={() => editStep(step.id)}>
+                    Edit
+                  </button>
+                )}
+                <button className="chip chip-small" onClick={() => removeStep(step.id)}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -134,7 +194,7 @@ export function GuidedAuthorPanel() {
 // TODO(follow-up): pendingTarget is being overloaded to carry {role, tempo} for
 // the 'set' action's two-choice flow. Works, but a dedicated pendingSetTarget
 // field on useGuidedAuthorStore would be cleaner. See plan Task 12.
-function SetChooser({ onConfirm }: { onConfirm: (setTarget: SetTarget) => void }) {
+function SetChooser({ onConfirm, onCancel }: { onConfirm: (setTarget: SetTarget) => void; onCancel: () => void }) {
   const pendingTarget = useGuidedAuthorStore((s) => s.pendingTarget);
   const setPendingTarget = useGuidedAuthorStore((s) => s.setPendingTarget);
   const role = (pendingTarget as unknown as { role?: HitterRole })?.role ?? null;
@@ -162,6 +222,9 @@ function SetChooser({ onConfirm }: { onConfirm: (setTarget: SetTarget) => void }
           {call}
         </button>
       ))}
+      <button className="chip" onClick={onCancel}>
+        Cancel
+      </button>
       <button className="chip chip-active" disabled={!role || !tempo} onClick={() => role && tempo && onConfirm({ role, tempo })}>
         Confirm
       </button>

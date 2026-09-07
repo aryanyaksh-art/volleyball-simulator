@@ -33,6 +33,7 @@ import { createWorldState, type PlaySchedule, type WorldState } from '@/core/pla
 import { diagnosePlay } from '@/core/play/diagnostics';
 import { analyzeServeReceive, type Passer } from '@/core/tactics/serveReceive';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
+import { guidedDoneOnCourtIds } from '@/app/guidedAuthoring';
 
 const SERVE_RECEIVE_CELL_SIZE_M = 0.4;
 const SERVE_CONTACT_HEIGHT_M = 2.2;
@@ -220,11 +221,18 @@ export function SceneCanvas() {
       evaluateInto(schedule, t, world);
 
       const activeTheme = THEME_PRESETS[useAppStore.getState().themeId];
+      const guidedActive = playback.mode === 'author' && !useAppStore.getState().authorAdvancedMode;
+      const guidedPlay = guidedActive ? usePlayEditorStore.getState().play : null;
+      const guidedDoneIds = guidedPlay ? guidedDoneOnCourtIds(guidedPlay) : null;
       const placements: PlayerPlacement[] = world.players.map((p) => ({
         id: p.onCourtId,
         side: p.side,
         pos: toWorld(p.pos, p.side, p.y),
-        teamColor: liberoOnCourtIdsRef.current.has(p.onCourtId) ? activeTheme.liberoColor : activeTheme.teams[p.side].body,
+        teamColor: liberoOnCourtIdsRef.current.has(p.onCourtId)
+          ? activeTheme.liberoColor
+          : guidedDoneIds?.has(p.onCourtId)
+            ? activeTheme.guidedDoneColor
+            : activeTheme.teams[p.side].body,
         pose: p.pose,
         facingRad: p.facingRad,
       }));
