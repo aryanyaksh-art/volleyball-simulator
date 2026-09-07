@@ -42,6 +42,8 @@ export interface Theme {
   };
   /** One color, not per-team: a libero should stand out from their own teammates on either side, the way a real libero jersey contrasts with the rest of the team. */
   liberoColor: string;
+  /** Dimmed color for players on the bench, in every theme. */
+  benchColor: string;
   overlays: {
     violation: string;
     responsibility: string[];

@@ -9,6 +9,7 @@ import { deriveMatchupState } from '@/app/deriveMatchupState';
 import { defensiveBase } from '@/core/tactics/defense.presets';
 import type { Play } from '@/core/play/types';
 import { deriveRotationState, effectivePosition } from '@/app/deriveRotationState';
+import { benchSlotPosition } from '@/core/court/anchors';
 import { SceneRenderer } from '@/render/SceneRenderer';
 import { SceneBridge, type PlayerPlacement } from '@/render/SceneBridge';
 import type { ViolationLink } from '@/render/overlays/ViolationOverlay';
@@ -99,6 +100,25 @@ function buildSceneState(
   }
 
   return { placements, violationLinks };
+}
+
+/** Roster players not currently in the lineup's serve order, laid out along each team's own bench row. Mirrors BenchPanel's own "who's on the bench" rule (liberos excluded — they swap in automatically, they're never manually benched). */
+function buildBenchPlacements(rosters: Record<Side, Roster>, lineups: Record<Side, Lineup>): PlayerPlacement[] {
+  const placements: PlayerPlacement[] = [];
+  for (const side of SIDES) {
+    const onCourtIds = new Set(lineups[side].order.filter((id): id is string => id != null));
+    const bench = rosters[side].players.filter((p) => p.primaryRole !== 'L' && !onCourtIds.has(p.id));
+    bench.forEach((p, i) => {
+      placements.push({
+        id: `bench:${side}:${p.id}`,
+        side,
+        pos: toWorld(benchSlotPosition(i, bench.length), side),
+        teamColor: '',
+        pose: 'idle',
+      });
+    });
+  }
+  return placements;
 }
 
 export function SceneCanvas() {
@@ -396,6 +416,7 @@ export function SceneCanvas() {
 
     if (playbackMode === 'play' || playbackMode === 'author') {
       // The per-frame playback loop owns formation/ball while a play is active.
+      bridge.setBench([]);
       return;
     }
 
@@ -417,6 +438,7 @@ export function SceneCanvas() {
     const scene = buildSceneState(theme, lineups, rosters, rotations, sceneOverrides, previewPlayerId, previewPose);
     bridge.setFormation(scene.placements);
     bridge.setViolationLinks(scene.violationLinks);
+    bridge.setBench(buildBenchPlacements(rosters, lineups));
   }, [
     themeId,
     lineups,

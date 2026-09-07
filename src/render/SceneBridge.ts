@@ -28,6 +28,8 @@ export interface PlayerPlacement {
   facingRad?: number;
 }
 
+const BENCH_SCALE = 0.75;
+
 function disposeObject(obj: THREE.Object3D): void {
   obj.traverse((child) => {
     const mesh = child as THREE.Mesh;
@@ -58,6 +60,7 @@ export class SceneBridge {
   private gridMesh: THREE.Object3D | null = null;
 
   private players = new Map<string, PlayerVisual>();
+  private benchPlayers = new Map<string, PlayerVisual>();
   private violationGroup: THREE.Group | null = null;
   private coverageMesh: THREE.Mesh | null = null;
   private approachLaneGroup: THREE.Group | null = null;
@@ -154,6 +157,36 @@ export class SceneBridge {
     return Array.from(this.players.entries()).map(([id, visual]) => ({ id, root: visual.root }));
   }
 
+  /** The on-court bench: dimmed, smaller silhouettes standing past each team's own endline. Same placement shape as setFormation, minus pose/facing nuance — bench players just face their own net. */
+  setBench(placements: PlayerPlacement[]): void {
+    const seen = new Set<string>();
+    for (const p of placements) {
+      seen.add(p.id);
+      let visual = this.benchPlayers.get(p.id);
+      if (!visual) {
+        visual = this.factory.create(this.theme.benchColor);
+        visual.root.scale.setScalar(BENCH_SCALE);
+        this.benchPlayers.set(p.id, visual);
+        this.scene.add(visual.root);
+      }
+      visual.setPosition(p.pos);
+      visual.setFacing(p.facingRad ?? (p.side === 'A' ? Math.PI : 0));
+      visual.setPose(p.pose);
+    }
+    for (const [id, visual] of this.benchPlayers) {
+      if (!seen.has(id)) {
+        this.scene.remove(visual.root);
+        visual.dispose();
+        this.benchPlayers.delete(id);
+      }
+    }
+  }
+
+  /** Bench roots for hit-testing (BenchDragController's raycasts) — not for mutating directly. */
+  getBenchRoots(): { id: string; root: THREE.Object3D }[] {
+    return Array.from(this.benchPlayers.entries()).map(([id, visual]) => ({ id, root: visual.root }));
+  }
+
   /** Live visual feedback while dragging a player — moves the mesh without touching pose/color/facing. */
   setPlayerPosition(id: string, pos: Vec3): void {
     this.players.get(id)?.setPosition(pos);
@@ -233,6 +266,12 @@ export class SceneBridge {
       visual.dispose();
     }
     this.players.clear();
+
+    for (const visual of this.benchPlayers.values()) {
+      this.scene.remove(visual.root);
+      visual.dispose();
+    }
+    this.benchPlayers.clear();
 
     if (this.courtGroup) {
       this.scene.remove(this.courtGroup);
