@@ -12,6 +12,7 @@
 
 .scene-viewport {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   position: relative;
 }
@@ -449,6 +450,13 @@
 
 .app-presentation .control-bar input[type='range'] {
   height: 28px;
+}
+
+.advanced-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
 }
 
 .presentation-exit {

@@ -25,6 +25,10 @@ interface AppState {
   /** The live renderer's canvas element, registered by SceneCanvas on mount — what the PNG rotation-sheet export reads pixels from. */
   sceneCanvasEl: HTMLCanvasElement | null;
   setSceneCanvasEl: (el: HTMLCanvasElement | null) => void;
+
+  /** Author mode's Advanced/Simple split. Off (simple) by default: the timeline/step-inspector sidebar is hidden and the guided panel shows instead. */
+  authorAdvancedMode: boolean;
+  toggleAuthorAdvancedMode: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -45,6 +49,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   sceneCanvasEl: null,
   setSceneCanvasEl: (el) => set({ sceneCanvasEl: el }),
+
+  authorAdvancedMode: false,
+  toggleAuthorAdvancedMode: () => set((s) => ({ authorAdvancedMode: !s.authorAdvancedMode })),
 }));
 
 // Dev-only escape hatch for driving the store from devtools/automation
