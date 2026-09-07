@@ -31,7 +31,7 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [presentationMode, togglePresentationMode]);
 
-  const showAuthorAdvancedToggle = !presentationMode && mode === 'author';
+  const showAuthorAdvancedToggle = !presentationMode && (mode === 'author' || mode === 'formation');
 
   return (
     <div className={presentationMode ? 'app app-presentation' : 'app'}>
@@ -59,9 +59,9 @@ function App() {
             <ServeReceiveSidebar />
           ) : mode === 'matchup' ? (
             <MatchupSidebar />
-          ) : (
+          ) : authorAdvancedMode ? (
             <LineupSidebar />
-          ))}
+          ) : null)}
         {!presentationMode && mode === 'author' && !authorAdvancedMode && <GuidedAuthorPanel />}
       </div>
       <TransportBar />
