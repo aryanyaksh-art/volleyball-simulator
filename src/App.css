@@ -452,6 +452,43 @@
   height: 28px;
 }
 
+.side-height-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.side-height-floor {
+  stroke: #4a5058;
+  stroke-width: 2;
+}
+
+.side-height-arc {
+  stroke: #4c74bd;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  fill: none;
+}
+
+.side-height-guide {
+  stroke: #303640;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.side-height-handle {
+  fill: #4c74bd;
+  cursor: grab;
+  touch-action: none;
+}
+
+.side-height-label {
+  font-size: 12px;
+  color: #cfd4dc;
+  font-variant-numeric: tabular-nums;
+}
+
 .advanced-toggle {
   position: absolute;
   top: 12px;
