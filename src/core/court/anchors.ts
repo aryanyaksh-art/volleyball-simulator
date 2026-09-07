@@ -24,3 +24,12 @@ export const SETTER_TARGET: Readonly<LocalPos> = { lat: 1.5, depth: 2.0 };
 /** Resolves a zone's effective position: a manual override if one is set, else the default anchor. */
 export const effectivePosition = (zone: ZoneNumber, overrides?: Partial<Record<ZoneNumber, LocalPos>>): LocalPos =>
   overrides?.[zone] ?? ZONE_BASE[zone];
+
+const BENCH_SPACING_M = 1.0;
+const BENCH_DEPTH_M = 10.5;
+
+/** Position for the `index`-th of `count` bench players, spaced 1m apart and centered on lat 0, standing past the free zone behind the team's own endline. */
+export const benchSlotPosition = (index: number, count: number, depthM = BENCH_DEPTH_M): LocalPos => ({
+  lat: (index - (count - 1) / 2) * BENCH_SPACING_M,
+  depth: depthM,
+});
