@@ -34,10 +34,6 @@ import { diagnosePlay } from '@/core/play/diagnostics';
 import { analyzeServeReceive, type Passer } from '@/core/tactics/serveReceive';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
 import { commitPositionAction, guidedDoneOnCourtIds } from '@/app/guidedAuthoring';
-import { Vector2, Vector3, Raycaster, Plane } from 'three';
-import { resolveDropTarget } from '@/render/BenchDragController';
-
-const FLOOR_PLANE = new Plane(new Vector3(0, 1, 0), 0);
 
 const SERVE_RECEIVE_CELL_SIZE_M = 0.4;
 const SERVE_CONTACT_HEIGHT_M = 2.2;
@@ -194,14 +190,6 @@ export function SceneCanvas() {
     bridge.setFormation(scene.placements);
     bridge.setViolationLinks(scene.violationLinks);
     useAppStore.getState().setSceneCanvasEl(renderer.renderer.domElement);
-    useAppStore.getState().setResolveCourtDropTarget((clientX, clientY) => {
-      const rect = renderer.renderer.domElement.getBoundingClientRect();
-      const pointer = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
-      const raycaster = new Raycaster();
-      raycaster.setFromCamera(pointer, renderer.cameraRig.camera);
-      const hit = new Vector3();
-      return raycaster.ray.intersectPlane(FLOOR_PLANE, hit) ? resolveDropTarget(hit) : null;
-    });
 
     renderer.start((dtSeconds) => {
       const b = bridgeRef.current;
@@ -407,7 +395,6 @@ export function SceneCanvas() {
       bridgeRef.current = null;
       dragControllerRef.current = null;
       useAppStore.getState().setSceneCanvasEl(null);
-      useAppStore.getState().setResolveCourtDropTarget(null);
     };
   }, []);
 
