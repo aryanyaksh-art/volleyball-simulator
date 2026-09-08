@@ -26,7 +26,7 @@ interface AppState {
   sceneCanvasEl: HTMLCanvasElement | null;
   setSceneCanvasEl: (el: HTMLCanvasElement | null) => void;
 
-  /** The Advanced/Simple split, shared by author mode and formation mode. Off (simple) by default: author mode hides the timeline/step-inspector sidebar in favor of the guided panel, and formation mode hides the Roster/Lineup/Rotation/Validation/Formation/Bench sidebar entirely. */
+  /** The Advanced/Simple split, shared by author mode, formation mode, and the bottom ControlBar (theme/camera/pose-preview). Off (simple) by default: author mode hides the timeline/step-inspector sidebar in favor of the guided panel, formation mode hides the Roster/Lineup/Rotation/Validation/Formation/Bench sidebar entirely, and ControlBar itself doesn't render at all. */
   authorAdvancedMode: boolean;
   toggleAuthorAdvancedMode: () => void;
 }

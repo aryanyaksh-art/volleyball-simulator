@@ -65,7 +65,7 @@ function App() {
         {!presentationMode && mode === 'author' && !authorAdvancedMode && <GuidedAuthorPanel />}
       </div>
       <TransportBar />
-      {!presentationMode && <ControlBar />}
+      {!presentationMode && authorAdvancedMode && <ControlBar />}
     </div>
   );
 }
