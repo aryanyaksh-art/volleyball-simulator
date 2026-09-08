@@ -1,4 +1,4 @@
-import { otherSide, toWorld, type Side } from '@/core/court/coordinates';
+import { otherSide, toWorld, type LocalPos, type Side } from '@/core/court/coordinates';
 import type { ZoneNumber } from '@/core/court/zones';
 import { effectivePosition } from '@/core/court/anchors';
 import { DEFAULT_COURT_SPEC } from '@/core/court/courtSpec';
@@ -48,6 +48,8 @@ export interface MatchupInputs {
   rosters: Record<Side, Roster>;
   lineups: Record<Side, Lineup>;
   rotations: Record<Side, number>;
+  /** A coach's manual per-zone nudge (FormationPanel) — takes priority over the defensive system's own base position for that zone, matching how every other mode already treats an override as the more specific, more intentional choice. */
+  positionOverrides: Record<Side, Partial<Record<ZoneNumber, LocalPos>>>;
 }
 
 export interface MatchupState {
@@ -69,8 +71,19 @@ export interface MatchupState {
  * something both the panel and the 3D scene can read directly.
  */
 export const deriveMatchupState = (inputs: MatchupInputs): MatchupState => {
-  const { attackingSide, attackZone, setCall, lateralSign, blockScheme, defensiveSystem, tipDefenderSlot, rosters, lineups, rotations } =
-    inputs;
+  const {
+    attackingSide,
+    attackZone,
+    setCall,
+    lateralSign,
+    blockScheme,
+    defensiveSystem,
+    tipDefenderSlot,
+    rosters,
+    lineups,
+    rotations,
+    positionOverrides,
+  } = inputs;
   const defendingSide = otherSide(attackingSide);
   const courtSpec = DEFAULT_COURT_SPEC;
 
@@ -83,8 +96,14 @@ export const deriveMatchupState = (inputs: MatchupInputs): MatchupState => {
   // The chosen defensive system repositions the defending side (see
   // SceneCanvas, which applies the same override to what's actually
   // rendered) — block/tip math has to read the same positions the coach
-  // sees on screen, not the plain rotation anchors.
-  const basePositions = defensiveBase(defensiveSystem, attackZone);
+  // sees on screen, not the plain rotation anchors. A manual FormationPanel
+  // override for a given zone wins over the system's own default for that
+  // zone: it's the more specific, more intentional choice, same as every
+  // other mode already treats it.
+  const basePositions: Partial<Record<ZoneNumber, LocalPos>> = {
+    ...defensiveBase(defensiveSystem, attackZone),
+    ...positionOverrides[defendingSide],
+  };
   const positionForZone = (zone: ZoneNumber): Vec3 => toWorld(effectivePosition(zone, basePositions), defendingSide, 0);
 
   const primaryBlockZone = ATTACK_ZONE_TO_BLOCK_ZONE[attackZone];

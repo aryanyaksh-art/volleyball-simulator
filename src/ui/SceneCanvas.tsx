@@ -9,7 +9,7 @@ import { deriveMatchupState } from '@/app/deriveMatchupState';
 import { defensiveBase } from '@/core/tactics/defense.presets';
 import type { Play } from '@/core/play/types';
 import { deriveRotationState, effectivePosition } from '@/app/deriveRotationState';
-import { benchSlotPosition, nearestZone } from '@/core/court/anchors';
+import { benchSlotPosition, benchDepthForOverrides, nearestZone } from '@/core/court/anchors';
 import { SceneRenderer } from '@/render/SceneRenderer';
 import { SceneBridge, type PlayerPlacement } from '@/render/SceneBridge';
 import type { ViolationLink } from '@/render/overlays/ViolationOverlay';
@@ -107,17 +107,22 @@ function buildSceneState(
   return { placements, violationLinks };
 }
 
-/** Roster players not currently in the lineup's serve order, laid out along each team's own bench row. Mirrors BenchPanel's own "who's on the bench" rule (liberos excluded — they swap in automatically, they're never manually benched). */
-function buildBenchPlacements(rosters: Record<Side, Roster>, lineups: Record<Side, Lineup>): PlayerPlacement[] {
+/** Roster players not currently in the lineup's serve order, laid out along each team's own bench row. Mirrors BenchPanel's own "who's on the bench" rule (liberos excluded — they swap in automatically, they're never manually benched). The row's own depth pulls back to clear any manually-displaced formation (see benchDepthForOverrides). */
+function buildBenchPlacements(
+  rosters: Record<Side, Roster>,
+  lineups: Record<Side, Lineup>,
+  positionOverrides: Record<Side, Partial<Record<ZoneNumber, LocalPos>>>,
+): PlayerPlacement[] {
   const placements: PlayerPlacement[] = [];
   for (const side of SIDES) {
     const onCourtIds = new Set(lineups[side].order.filter((id): id is string => id != null));
     const bench = rosters[side].players.filter((p) => p.primaryRole !== 'L' && !onCourtIds.has(p.id));
+    const depthM = benchDepthForOverrides(positionOverrides[side]);
     bench.forEach((p, i) => {
       placements.push({
         id: `bench:${side}:${p.id}`,
         side,
-        pos: toWorld(benchSlotPosition(i, bench.length), side),
+        pos: toWorld(benchSlotPosition(i, bench.length, depthM), side),
         teamColor: '',
         pose: 'idle',
       });
@@ -142,6 +147,8 @@ export function SceneCanvas() {
   const themeId = useAppStore((s) => s.themeId);
   const cameraPreset = useAppStore((s) => s.cameraPreset);
   const cameraRequestToken = useAppStore((s) => s.cameraRequestToken);
+  const focusCameraTarget = useAppStore((s) => s.focusCameraTarget);
+  const focusCameraToken = useAppStore((s) => s.focusCameraToken);
   const previewPlayerId = useAppStore((s) => s.previewPlayerId);
   const previewPose = useAppStore((s) => s.previewPose);
 
@@ -513,6 +520,7 @@ export function SceneCanvas() {
       rosters,
       lineups,
       rotations,
+      positionOverrides,
     });
 
     bridge.setApproachLane([
@@ -533,6 +541,7 @@ export function SceneCanvas() {
     lineups,
     rosters,
     rotations,
+    positionOverrides,
   ]);
 
   useEffect(() => {
@@ -554,20 +563,24 @@ export function SceneCanvas() {
 
     // In matchup mode, the defending side's on-court spots reflect the
     // chosen defensive system's base positions instead of their plain
-    // rotation anchors, so switching "Defense" is actually visible on court.
+    // rotation anchors, so switching "Defense" is actually visible on
+    // court — but a coach's own manual FormationPanel override for a given
+    // zone still wins over the system's default for that zone, matching
+    // deriveMatchupState's own merge order (the math and what's rendered
+    // have to agree).
     let sceneOverrides = positionOverrides;
     if (playbackMode === 'matchup') {
       const defendingSide = otherSide(matchupAttackingSide);
       sceneOverrides = {
         ...positionOverrides,
-        [defendingSide]: { ...positionOverrides[defendingSide], ...defensiveBase(matchupDefensiveSystem, matchupAttackZone) },
+        [defendingSide]: { ...defensiveBase(matchupDefensiveSystem, matchupAttackZone), ...positionOverrides[defendingSide] },
       };
     }
 
     const scene = buildSceneState(theme, lineups, rosters, rotations, sceneOverrides, previewPlayerId, previewPose);
     bridge.setFormation(scene.placements);
     bridge.setViolationLinks(scene.violationLinks);
-    bridge.setBench(buildBenchPlacements(rosters, lineups));
+    bridge.setBench(buildBenchPlacements(rosters, lineups, positionOverrides));
   }, [
     themeId,
     lineups,
@@ -587,6 +600,12 @@ export function SceneCanvas() {
     rendererRef.current?.cameraRig.goToPreset(cameraPreset);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraRequestToken]);
+
+  useEffect(() => {
+    if (focusCameraToken === 0 || !focusCameraTarget) return; // skip the initial mount
+    rendererRef.current?.cameraRig.focusOn(focusCameraTarget);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusCameraToken]);
 
   return <div ref={containerRef} className="scene-canvas" />;
 }

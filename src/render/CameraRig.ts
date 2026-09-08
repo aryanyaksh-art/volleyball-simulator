@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import type { Vec3 } from '@/core/math/vec';
 import { CAMERA_PRESETS, type CameraPresetId } from './cameraPresets';
 
 interface Transition {
@@ -49,6 +50,30 @@ export class CameraRig {
       fromTarget: this.controls.target.clone(),
       to: new THREE.Vector3(preset.position.x, preset.position.y, preset.position.z),
       toTarget: new THREE.Vector3(preset.target.x, preset.target.y, preset.target.z),
+      startMs: performance.now(),
+      durationMs,
+    };
+  }
+
+  /**
+   * Tweens to look at an arbitrary world point instead of a named preset —
+   * used to point the camera at an overlap violation. Keeps the camera's
+   * current distance and angle from its target (just re-centers on the new
+   * point), so this reads as "look over there" rather than a jarring
+   * preset-style jump to a fixed position.
+   */
+  focusOn(target: Vec3, distance = 6, durationMs = 500): void {
+    const targetVec = new THREE.Vector3(target.x, target.y, target.z);
+    const currentOffset = this.camera.position.clone().sub(this.controls.target);
+    const offset =
+      currentOffset.lengthSq() > 1e-6
+        ? currentOffset.normalize().multiplyScalar(distance)
+        : new THREE.Vector3(0, distance * 0.6, distance * 0.8);
+    this.transition = {
+      from: this.camera.position.clone(),
+      fromTarget: this.controls.target.clone(),
+      to: targetVec.clone().add(offset),
+      toTarget: targetVec,
       startMs: performance.now(),
       durationMs,
     };

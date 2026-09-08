@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { CameraPresetId } from '@/render/cameraPresets';
 import { DEFAULT_THEME_ID } from '@/render/theme/presets';
 import type { PoseId } from '@/core/play/poses';
+import type { Vec3 } from '@/core/math/vec';
 
 interface AppState {
   themeId: string;
@@ -12,6 +13,12 @@ interface AppState {
   cameraPreset: CameraPresetId;
   cameraRequestToken: number;
   goToCameraPreset: (id: CameraPresetId) => void;
+
+  /** Same token-bump pattern as goToCameraPreset, but for looking at an
+   *  arbitrary world point (an overlap violation) instead of a named preset. */
+  focusCameraTarget: Vec3 | null;
+  focusCameraToken: number;
+  focusCameraOn: (target: Vec3) => void;
 
   previewPlayerId: string;
   setPreviewPlayerId: (id: string) => void;
@@ -38,6 +45,10 @@ export const useAppStore = create<AppState>((set) => ({
   cameraPreset: 'angledA',
   cameraRequestToken: 0,
   goToCameraPreset: (id) => set((s) => ({ cameraPreset: id, cameraRequestToken: s.cameraRequestToken + 1 })),
+
+  focusCameraTarget: null,
+  focusCameraToken: 0,
+  focusCameraOn: (target) => set((s) => ({ focusCameraTarget: target, focusCameraToken: s.focusCameraToken + 1 })),
 
   previewPlayerId: 'A:1',
   setPreviewPlayerId: (id) => set({ previewPlayerId: id }),

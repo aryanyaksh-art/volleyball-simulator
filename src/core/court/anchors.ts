@@ -41,9 +41,29 @@ export const nearestZone = (local: LocalPos): ZoneNumber => {
 
 const BENCH_SPACING_M = 1.0;
 const BENCH_DEPTH_M = 10.5;
+const BENCH_DEPTH_MARGIN_M = 1.0;
 
 /** Position for the `index`-th of `count` bench players, spaced 1m apart and centered on lat 0, standing past the free zone behind the team's own endline. */
 export const benchSlotPosition = (index: number, count: number, depthM = BENCH_DEPTH_M): LocalPos => ({
   lat: (index - (count - 1) / 2) * BENCH_SPACING_M,
   depth: depthM,
 });
+
+/**
+ * The bench row's own depth, pulled back further whenever a manual
+ * FormationPanel override pushes some zone deeper than the default bench
+ * row would otherwise clear — purely cosmetic, but a manually-displaced
+ * formation shouldn't visually collide with the bench line. Never pulls the
+ * row closer than the default, only further away.
+ */
+export const benchDepthForOverrides = (
+  overrides: Partial<Record<ZoneNumber, LocalPos>> | undefined,
+  baseDepthM = BENCH_DEPTH_M,
+): number => {
+  if (!overrides) return baseDepthM;
+  let maxDepth = baseDepthM;
+  for (const pos of Object.values(overrides)) {
+    if (pos && pos.depth + BENCH_DEPTH_MARGIN_M > maxDepth) maxDepth = pos.depth + BENCH_DEPTH_MARGIN_M;
+  }
+  return maxDepth;
+};

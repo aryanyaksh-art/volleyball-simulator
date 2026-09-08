@@ -34,6 +34,7 @@ export function MatchupPanel() {
   const rosters = useLineupStore((s) => s.rosters);
   const lineups = useLineupStore((s) => s.lineups);
   const rotations = useLineupStore((s) => s.rotations);
+  const positionOverrides = useLineupStore((s) => s.positionOverrides);
 
   const defendingSide: Side = otherSide(attackingSide);
 
@@ -50,8 +51,21 @@ export function MatchupPanel() {
         rosters,
         lineups,
         rotations,
+        positionOverrides,
       }),
-    [attackingSide, attackZone, setCall, lateralSign, blockScheme, defensiveSystem, tipDefenderSlot, rosters, lineups, rotations],
+    [
+      attackingSide,
+      attackZone,
+      setCall,
+      lateralSign,
+      blockScheme,
+      defensiveSystem,
+      tipDefenderSlot,
+      rosters,
+      lineups,
+      rotations,
+      positionOverrides,
+    ],
   );
 
   const defenderSlots = useMemo(
