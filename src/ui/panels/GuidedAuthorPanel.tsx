@@ -150,6 +150,11 @@ export function GuidedAuthorPanel() {
               depth={pendingTarget?.depth ?? 0}
               onChange={(lat, depth) => setPendingTarget({ ...(pendingTarget ?? {}), lat, depth })}
             />
+            {!pendingTarget && (
+              <button className="chip" onClick={reset}>
+                Cancel
+              </button>
+            )}
           </div>
           {pendingTarget && (
             <div className="guided-target-confirm">
@@ -207,7 +212,7 @@ export function GuidedAuthorPanel() {
             usePlaybackStore.getState().setMode('play');
           }}
         >
-          ▶ Save & Play
+          Save & Play
         </button>
       </div>
 

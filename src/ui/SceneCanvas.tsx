@@ -33,7 +33,7 @@ import { createWorldState, type PlaySchedule, type WorldState } from '@/core/pla
 import { diagnosePlay } from '@/core/play/diagnostics';
 import { analyzeServeReceive, type Passer } from '@/core/tactics/serveReceive';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
-import { guidedDoneOnCourtIds } from '@/app/guidedAuthoring';
+import { commitPositionAction, guidedDoneOnCourtIds } from '@/app/guidedAuthoring';
 
 const SERVE_RECEIVE_CELL_SIZE_M = 0.4;
 const SERVE_CONTACT_HEIGHT_M = 2.2;
@@ -327,6 +327,23 @@ export function SceneCanvas() {
         const playback = usePlaybackStore.getState();
         return playback.mode === 'author' && !useAppStore.getState().authorAdvancedMode;
       },
+      setOrbitEnabled: (enabled) => {
+        renderer.cameraRig.controls.enabled = enabled;
+      },
+      onDragMove: (id, worldPos) => {
+        bridge.setPlayerPosition(id, { x: worldPos.x, y: 0, z: worldPos.z });
+      },
+      onDragEnd: (id, worldPos) => {
+        const [side] = id.split(':') as [Side, string];
+        const guided = useGuidedAuthorStore.getState();
+        // Dragging the player currently mid-flow (selected, maybe with a
+        // pending action) supersedes that flow rather than running alongside
+        // it — a direct drag is an unambiguous "put them here," so whatever
+        // click-based action was half-chosen for them is dropped.
+        if (guided.selectedOnCourtId === id) guided.reset();
+        const local = toLocal({ x: worldPos.x, y: 0, z: worldPos.z }, side);
+        usePlayEditorStore.getState().applyGuidedAction((p) => commitPositionAction(p, { action: 'move', onCourtId: id, side, target: local }));
+      },
       onSelectPlayer: (id) => {
         const guided = useGuidedAuthorStore.getState();
         const swap = guided.pendingBenchSwap;
@@ -337,11 +354,26 @@ export function SceneCanvas() {
           guided.reset();
           return;
         }
+        // Clicking the already-selected player again deselects them, but only
+        // before an action's been chosen — once a target/height picker is up,
+        // a re-click should behave like any other player click (reselect),
+        // not silently discard whatever's in progress.
+        if (guided.selectedOnCourtId === id && !guided.pendingAction) {
+          guided.reset();
+          return;
+        }
         guided.selectPlayer(id);
       },
       onSelectFloor: (worldPos) => {
         const guided = useGuidedAuthorStore.getState();
-        if (!guided.selectedOnCourtId || !guided.pendingAction) return;
+        if (!guided.selectedOnCourtId) return;
+        if (!guided.pendingAction) {
+          // A player's selected but no action chosen yet — clicking open
+          // floor is unambiguous (there's nothing else it could mean here),
+          // so treat it as "click elsewhere to deselect."
+          guided.reset();
+          return;
+        }
         const floorSide = guided.selectedOnCourtId.split(':')[0] as Side;
         const local = toLocal({ x: worldPos.x, y: 0, z: worldPos.z }, floorSide);
         guided.setPendingTarget({ lat: local.lat, depth: local.depth });
