@@ -18,6 +18,8 @@ import { buildCoverageHeatmap } from './overlays/CoverageHeatmap';
 import type { ServeReceiveCell } from '@/core/tactics/serveReceive';
 import { buildApproachLaneGroup } from './overlays/ApproachLanes';
 import { buildBlockShadowMesh, buildTipRegionRing } from './overlays/BlockShadow';
+import { buildOpenAngleConesMesh } from './overlays/OpenAngleCones';
+import type { OpenAngleCones } from '@/core/tactics/block';
 
 export interface PlayerPlacement {
   id: string;
@@ -67,6 +69,7 @@ export class SceneBridge {
   private approachLaneGroup: THREE.Group | null = null;
   private blockShadowMesh: THREE.Mesh | null = null;
   private tipRegionMesh: THREE.Mesh | null = null;
+  private openAngleMesh: THREE.Mesh | null = null;
   private ball: BallVisual;
   private ballTrail: BallTrail;
 
@@ -272,6 +275,20 @@ export class SceneBridge {
     }
   }
 
+  /** The two open-angle cones flanking the block shadow. Pass null to clear it. */
+  setOpenAngleCones(cones: OpenAngleCones | null): void {
+    if (this.openAngleMesh) {
+      this.scene.remove(this.openAngleMesh);
+      disposeObject(this.openAngleMesh);
+      this.openAngleMesh = null;
+    }
+    const mesh = buildOpenAngleConesMesh(cones, this.theme);
+    if (mesh) {
+      this.openAngleMesh = mesh;
+      this.scene.add(mesh);
+    }
+  }
+
   dispose(): void {
     for (const visual of this.players.values()) {
       this.scene.remove(visual.root);
@@ -334,6 +351,11 @@ export class SceneBridge {
       this.scene.remove(this.tipRegionMesh);
       disposeObject(this.tipRegionMesh);
       this.tipRegionMesh = null;
+    }
+    if (this.openAngleMesh) {
+      this.scene.remove(this.openAngleMesh);
+      disposeObject(this.openAngleMesh);
+      this.openAngleMesh = null;
     }
     this.scene.remove(this.ball.mesh);
     this.ball.dispose();

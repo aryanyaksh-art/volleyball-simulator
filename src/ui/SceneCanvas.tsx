@@ -176,6 +176,7 @@ export function SceneCanvas() {
   const matchupBlockScheme = useMatchupStore((s) => s.blockScheme);
   const matchupDefensiveSystem = useMatchupStore((s) => s.defensiveSystem);
   const matchupTipDefenderSlot = useMatchupStore((s) => s.tipDefenderSlot);
+  const matchupHitterSlot = useMatchupStore((s) => s.hitterSlot);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -523,6 +524,7 @@ export function SceneCanvas() {
     if (playbackMode !== 'matchup') {
       bridge.setApproachLane([]);
       bridge.setMatchupShadow([], null);
+      bridge.setOpenAngleCones(null);
       return;
     }
 
@@ -534,6 +536,7 @@ export function SceneCanvas() {
       blockScheme: matchupBlockScheme,
       defensiveSystem: matchupDefensiveSystem,
       tipDefenderSlot: matchupTipDefenderSlot,
+      hitterSlot: matchupHitterSlot,
       rosters,
       lineups,
       rotations,
@@ -546,6 +549,7 @@ export function SceneCanvas() {
       matchup.contactWorld,
     ]);
     bridge.setMatchupShadow(matchup.blockShadowPolygon, matchup.tipRegion);
+    bridge.setOpenAngleCones(matchup.openAngleCones);
   }, [
     playbackMode,
     matchupAttackingSide,
@@ -555,6 +559,7 @@ export function SceneCanvas() {
     matchupBlockScheme,
     matchupDefensiveSystem,
     matchupTipDefenderSlot,
+    matchupHitterSlot,
     lineups,
     rosters,
     rotations,

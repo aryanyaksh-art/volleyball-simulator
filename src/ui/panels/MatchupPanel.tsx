@@ -23,6 +23,8 @@ export function MatchupPanel() {
   const blockScheme = useMatchupStore((s) => s.blockScheme);
   const defensiveSystem = useMatchupStore((s) => s.defensiveSystem);
   const tipDefenderSlot = useMatchupStore((s) => s.tipDefenderSlot);
+  const hitterSlot = useMatchupStore((s) => s.hitterSlot);
+  const setHitterSlot = useMatchupStore((s) => s.setHitterSlot);
   const setAttackingSide = useMatchupStore((s) => s.setAttackingSide);
   const setAttackZone = useMatchupStore((s) => s.setAttackZone);
   const setSetCall = useMatchupStore((s) => s.setSetCall);
@@ -48,6 +50,7 @@ export function MatchupPanel() {
         blockScheme,
         defensiveSystem,
         tipDefenderSlot,
+        hitterSlot,
         rosters,
         lineups,
         rotations,
@@ -61,6 +64,7 @@ export function MatchupPanel() {
       blockScheme,
       defensiveSystem,
       tipDefenderSlot,
+      hitterSlot,
       rosters,
       lineups,
       rotations,
@@ -71,6 +75,11 @@ export function MatchupPanel() {
   const defenderSlots = useMemo(
     () => breakdown(lineups[defendingSide], rosters[defendingSide], defendingSide, rotations[defendingSide]).onCourt,
     [lineups, rosters, rotations, defendingSide],
+  );
+
+  const attackerSlots = useMemo(
+    () => breakdown(lineups[attackingSide], rosters[attackingSide], attackingSide, rotations[attackingSide]).onCourt,
+    [lineups, rosters, rotations, attackingSide],
   );
 
   const inShadowIds = new Set(matchup.shadowDefenders.filter((d) => d.inShadow).map((d) => d.onCourtId));
@@ -97,6 +106,22 @@ export function MatchupPanel() {
             {z} ({ZONE_TO_ROLE[z]})
           </button>
         ))}
+      </div>
+
+      <div className="control-group">
+        <span className="control-label">Hitter</span>
+        <select value={hitterSlot ?? ''} onChange={(e) => setHitterSlot(e.target.value === '' ? null : Number(e.target.value))}>
+          <option value="">(zone default)</option>
+          {attackerSlots.map((p) => {
+            const player = findPlayer(rosters[attackingSide], p.playerId);
+            const label = player ? `#${player.number} ${player.name}` : `slot ${p.slot + 1}`;
+            return (
+              <option key={p.slot} value={p.slot}>
+                {label} (zone {p.zone ?? '-'})
+              </option>
+            );
+          })}
+        </select>
       </div>
 
       <div className="control-group">
@@ -202,6 +227,21 @@ export function MatchupPanel() {
         </p>
       )}
       {!matchup.tipCoverage && tipDefenderSlot == null && <p className="panel-note">Assign a tip defender to check tip coverage.</p>}
+
+      {matchup.openAngleCoverage && (
+        <ul className="panel-warnings">
+          {(['left', 'right'] as const).map((side) => {
+            const coverage = matchup.openAngleCoverage![side];
+            const covered = coverage?.covered ?? false;
+            return (
+              <li key={side} className={covered ? 'margin-ok' : 'violation-warning'}>
+                Open angle ({side}): {covered ? 'covered' : 'OPEN'}
+                {coverage ? ` (margin ${coverage.marginM.toFixed(2)} m)` : ''}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

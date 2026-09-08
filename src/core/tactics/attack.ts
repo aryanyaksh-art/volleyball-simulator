@@ -101,6 +101,25 @@ export type BlockMode = 'shuffle' | 'crossover';
 
 export type BlockScheme = 'spread' | 'bunch-read' | 'bunch-commit' | 'release';
 
+/**
+ * How far a blocker's STARTING lateral position (pre-read) is pulled toward
+ * court center (x=0) before they react to the set, by scheme — the actual
+ * mechanical difference between a spread block (already at their natural
+ * zone, no travel penalty) and a bunch read-block (converges toward the
+ * middle first, so a pin attack now genuinely takes longer to reach) versus
+ * a bunch commit-block (already leaning toward the call, so less far to
+ * travel than a full read). This is this tool's own concrete interpretation
+ * of "real positional differences between schemes" — the original plan
+ * didn't specify a formula, only that spread/bunch-read reading identically
+ * was a known gap. `release` never blocks, so it's not meaningful there.
+ */
+export const BLOCK_SCHEME_CONVERGENCE: Record<BlockScheme, number> = {
+  spread: 0,
+  'bunch-read': 0.6,
+  'bunch-commit': 0.3,
+  release: 0,
+};
+
 export interface BlockFeasibility {
   requiredTimeS: number;
   availableTimeS: number;

@@ -74,6 +74,43 @@ export interface OpenCone {
   edgeB: Vec3;
 }
 
+export interface OpenAngleCones {
+  left: OpenCone;
+  right: OpenCone;
+}
+
+/**
+ * Two open-angle cones flanking the block shadow — a shot down each
+ * sideline from the hitter's contact point, around the OUTSIDE of the
+ * block, to that side's deep corner. Labeled left/right by world x rather
+ * than "line"/"angle": which physical shot ("down the line" vs
+ * "cross-court") each one reads as depends on which direction the hitter
+ * approached from, which this pure geometry function doesn't know — the
+ * caller/UI maps that if it has the context (lateralSign). Reuses
+ * computeBlockShadow's own polygon as the inner boundary, so the cones and
+ * the shadow always agree on where the block actually is. Returns null
+ * when there's no block up (an empty shadow polygon) — with no block, the
+ * "gap around it" framing doesn't apply.
+ */
+export const computeOpenAngleCones = (
+  contact: Vec3,
+  blockShadowPolygon: Vec3[],
+  courtHalfWidthM: number,
+  courtHalfLengthM: number,
+): OpenAngleCones | null => {
+  if (blockShadowPolygon.length < 4) return null;
+  // computeBlockShadow returns [nearA, nearB, farB, farA].
+  const farB = blockShadowPolygon[2];
+  const farA = blockShadowPolygon[3];
+  const deepZ = farA.z >= 0 ? courtHalfLengthM : -courtHalfLengthM;
+  const leftCorner: Vec3 = { x: -courtHalfWidthM, y: 0, z: deepZ };
+  const rightCorner: Vec3 = { x: courtHalfWidthM, y: 0, z: deepZ };
+  return {
+    left: { id: 'left', apex: contact, edgeA: leftCorner, edgeB: farA },
+    right: { id: 'right', apex: contact, edgeA: farB, edgeB: rightCorner },
+  };
+};
+
 export interface ReachCheck {
   covered: boolean;
   marginM: number;

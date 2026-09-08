@@ -13,6 +13,8 @@ interface MatchupState {
   defensiveSystem: DefensiveSystem;
   /** Defending-side serve-order slot assigned to cover the tip, if any. */
   tipDefenderSlot: number | null;
+  /** Attacking-side serve-order slot doing the hitting, if the coach picked a specific player — null uses the zone-only default. */
+  hitterSlot: number | null;
 
   setAttackingSide: (side: Side) => void;
   setAttackZone: (zone: AttackZone) => void;
@@ -21,6 +23,7 @@ interface MatchupState {
   setBlockScheme: (scheme: BlockScheme) => void;
   setDefensiveSystem: (system: DefensiveSystem) => void;
   setTipDefenderSlot: (slot: number | null) => void;
+  setHitterSlot: (slot: number | null) => void;
 }
 
 export const useMatchupStore = create<MatchupState>((set) => ({
@@ -31,6 +34,7 @@ export const useMatchupStore = create<MatchupState>((set) => ({
   blockScheme: 'spread',
   defensiveSystem: 'perimeter',
   tipDefenderSlot: null,
+  hitterSlot: null,
 
   setAttackingSide: (side) => set({ attackingSide: side }),
   setAttackZone: (zone) => set({ attackZone: zone }),
@@ -39,6 +43,7 @@ export const useMatchupStore = create<MatchupState>((set) => ({
   setBlockScheme: (scheme) => set({ blockScheme: scheme }),
   setDefensiveSystem: (system) => set({ defensiveSystem: system }),
   setTipDefenderSlot: (slot) => set({ tipDefenderSlot: slot }),
+  setHitterSlot: (slot) => set({ hitterSlot: slot }),
 }));
 
 if (import.meta.env.DEV) {

@@ -4,6 +4,7 @@ import {
   checkOpenAngle,
   checkTipCoverage,
   computeBlockShadow,
+  computeOpenAngleCones,
   computeTipRegion,
   isPointInPolygon,
   projectToFloor,
@@ -89,6 +90,41 @@ describe('checkOpenAngle', () => {
     const result = checkOpenAngle(cone, { x: -4, y: 0, z: 1 }, 1);
     expect(result.covered).toBe(false);
     expect(result.marginM).toBeLessThan(0);
+  });
+});
+
+describe('computeOpenAngleCones', () => {
+  const contact = { x: 0, y: 3.2, z: 3 };
+  const edge: BlockTopEdge = { a: { x: -0.5, y: 2.6, z: 0 }, b: { x: 0.5, y: 2.6, z: 0 } };
+  const polygon = computeBlockShadow(contact, edge, 4.5, 9); // [nearA, nearB, farB, farA]
+
+  it('returns null when there is no block shadow (no block up)', () => {
+    expect(computeOpenAngleCones(contact, [], 4.5, 9)).toBeNull();
+  });
+
+  it('anchors both cones at the hitter\'s contact point', () => {
+    const cones = computeOpenAngleCones(contact, polygon, 4.5, 9)!;
+    expect(cones.left.apex).toEqual(contact);
+    expect(cones.right.apex).toEqual(contact);
+  });
+
+  it('the left cone runs from the far-negative-x corner to the shadow\'s own near-negative-x edge', () => {
+    const cones = computeOpenAngleCones(contact, polygon, 4.5, 9)!;
+    expect(cones.left.edgeA.x).toBeCloseTo(-4.5);
+    expect(cones.left.edgeB).toEqual(polygon[3]); // farA
+  });
+
+  it('the right cone runs from the shadow\'s own near-positive-x edge to the far-positive-x corner', () => {
+    const cones = computeOpenAngleCones(contact, polygon, 4.5, 9)!;
+    expect(cones.right.edgeA).toEqual(polygon[2]); // farB
+    expect(cones.right.edgeB.x).toBeCloseTo(4.5);
+  });
+
+  it('the corners sit on the same side of the net as the shadow itself, not the attacker\'s own side', () => {
+    const cones = computeOpenAngleCones(contact, polygon, 4.5, 9)!;
+    const shadowSign = Math.sign(polygon[3].z || 1);
+    expect(Math.sign(cones.left.edgeA.z)).toBe(shadowSign);
+    expect(Math.sign(cones.right.edgeB.z)).toBe(shadowSign);
   });
 });
 
