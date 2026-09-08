@@ -111,7 +111,14 @@ describe('diagnosePlay: ball flight issues', () => {
       kind: 'serve',
       from: { kind: 'local', side: 'A', pos: { lat: 0, depth: 9 }, y: 1.2 },
       to: { kind: 'local', side: 'B', pos: { lat: 0, depth: 6 }, y: 0 },
-      apexM: 3.0,
+      // 3.6, not 3.0: the net crossing here falls just past the apex, in the
+      // descending half. ballFlight.ts's height ramp is a straight line on
+      // each side now (uniform speed, not an easing parabola that lingers
+      // near the top), so it loses height faster right after the peak than
+      // the old curve did — 3.0 cleared the net under the old shape but
+      // clips it under this one. A real coach retuning a marginal play
+      // after this change would do the same thing: raise the apex a bit.
+      apexM: 3.6,
     };
     const schedule = compilePlay(play, ctx);
     const diagnostics = diagnosePlay(schedule);

@@ -2,27 +2,25 @@ import type { Vec3 } from '@/core/math/vec';
 import { clamp01 } from '@/core/math/easing';
 
 /**
- * Deterministic parabola, closed form. Horizontal lerps from->to; vertical
- * pins an exact apex height at the midpoint (or at apexU if given, for a
- * spike's peak near contact rather than mid-flight). Endpoints exact, apex
- * exact, one multiply-add per frame.
+ * Deterministic two-phase height ramp, closed form: constant speed rising
+ * from y0 to apexM over [0, apexU], then constant speed falling from apexM
+ * to y1 over [apexU, 1] — a straight line on each side, not a physically-
+ * accelerating parabola. A real ball under gravity slows near the apex and
+ * speeds up toward either end; deliberately not modeled here, since that
+ * read as erratic ("speeds up, then really fast") rather than a clean,
+ * predictable arc a coach can read at a glance. Endpoints and apex are
+ * still exact either way, so this is a drop-in swap for the horizontal
+ * lerp same as before.
  */
 export const ballHeightAt = (y0: number, y1: number, apexM: number, u: number, apexU = 0.5): number => {
   const uc = clamp01(u);
-  // Solve for the height formula's asymmetric peak at apexU instead of always 0.5:
-  // treat it as two joined parabolic halves that meet at (apexU, apexM).
-  if (apexU <= 0 || apexU >= 1 || Math.abs(apexU - 0.5) < 1e-9) {
-    const k = 4 * apexM - 2 * (y0 + y1);
-    return y0 + (y1 - y0) * uc + k * uc * (1 - uc);
+  const peakU = apexU <= 0 || apexU >= 1 ? 0.5 : apexU;
+  if (uc <= peakU) {
+    const uu = peakU > 0 ? uc / peakU : 1;
+    return y0 + (apexM - y0) * uu;
   }
-  if (uc <= apexU) {
-    // Quadratic ease-up from y0 to apexM over [0, apexU], exact at both ends.
-    const uu = uc / apexU;
-    return y0 + (apexM - y0) * (2 * uu - uu * uu);
-  }
-  // Quadratic ease-down from apexM to y1 over [apexU, 1], exact at both ends.
-  const uu = (uc - apexU) / (1 - apexU);
-  return apexM - (apexM - y1) * (2 * uu - uu * uu);
+  const uu = peakU < 1 ? (uc - peakU) / (1 - peakU) : 1;
+  return apexM + (y1 - apexM) * uu;
 };
 
 export const ballPositionAt = (from: Vec3, to: Vec3, apexM: number, u: number, apexU = 0.5): Vec3 => {

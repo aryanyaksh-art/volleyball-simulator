@@ -45,11 +45,12 @@ describe('assignResponsibility', () => {
 });
 
 describe('solveTimeToHeight', () => {
-  it('matches the exact analytic crossing for a known symmetric parabola', () => {
-    // y0=0, y1=0, apex=1 at u=0.5: y(u) = 4u(1-u). y=0.5 at u = (2±sqrt(2))/4;
-    // the descending (larger) root is (2+sqrt(2))/4.
+  it('matches the exact analytic crossing for a known uniform-speed descent', () => {
+    // y0=0, y1=0, apex=1 at u=0.5: descending half is a straight line from
+    // (0.5, 1) to (1, 0), i.e. y(u) = 1 - 2*(u - 0.5) for u in [0.5, 1].
+    // y=0.5 at u=0.75.
     const totalDurationS = 2.0;
-    const expectedU = (2 + Math.sqrt(2)) / 4;
+    const expectedU = 0.75;
     const result = solveTimeToHeight(0, 0, 1, 0.5, totalDurationS);
     expect(result).not.toBeNull();
     expect(result!).toBeCloseTo(expectedU * totalDurationS, 3);
