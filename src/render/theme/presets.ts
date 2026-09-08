@@ -22,6 +22,7 @@ const blueprint: Theme = {
   liberoColor: '#ffffff',
   benchColor: '#4a5058',
   guidedDoneColor: '#ffcf40',
+  guidedSelectedColor: '#ff2d95',
   overlays: {
     violation: '#ff3b30',
     responsibility: ['#39ff6a', '#33c7ff', '#ffd23f', '#ff8fd8'],
@@ -56,6 +57,7 @@ const court: Theme = {
   liberoColor: '#ffffff',
   benchColor: '#4a5058',
   guidedDoneColor: '#ffb100',
+  guidedSelectedColor: '#ff2d95',
   overlays: {
     violation: '#ff5c4d',
     responsibility: ['#d1495b', '#1f6feb', '#f2b134', '#7bd389'],
@@ -84,6 +86,7 @@ const whiteboard: Theme = {
   liberoColor: '#101113',
   benchColor: '#9a9a94',
   guidedDoneColor: '#c98a00',
+  guidedSelectedColor: '#d6006f',
   overlays: {
     violation: '#d62828',
     responsibility: ['#14213d', '#8f2d56', '#f2542d', '#2a9d8f'],

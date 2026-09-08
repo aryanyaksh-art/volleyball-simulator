@@ -46,6 +46,8 @@ export interface Theme {
   benchColor: string;
   /** Guided authoring only: a player who already has an action somewhere in the play being built turns this color, so a coach can see who's covered at a glance. */
   guidedDoneColor: string;
+  /** Guided authoring only: the player currently selected for an action/bench-swap/edit — takes priority over guidedDoneColor so "selected" and "already has an action" never look identical (deselecting them then visibly reverts the color). */
+  guidedSelectedColor: string;
   overlays: {
     violation: string;
     responsibility: string[];

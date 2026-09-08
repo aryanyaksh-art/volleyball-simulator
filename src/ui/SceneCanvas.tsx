@@ -224,15 +224,19 @@ export function SceneCanvas() {
       const guidedActive = playback.mode === 'author' && !useAppStore.getState().authorAdvancedMode;
       const guidedPlay = guidedActive ? usePlayEditorStore.getState().play : null;
       const guidedDoneIds = guidedPlay ? guidedDoneOnCourtIds(guidedPlay) : null;
+      const guidedSelectedId = guidedActive ? useGuidedAuthorStore.getState().selectedOnCourtId : null;
       const placements: PlayerPlacement[] = world.players.map((p) => ({
         id: p.onCourtId,
         side: p.side,
         pos: toWorld(p.pos, p.side, p.y),
-        teamColor: liberoOnCourtIdsRef.current.has(p.onCourtId)
-          ? activeTheme.liberoColor
-          : guidedDoneIds?.has(p.onCourtId)
-            ? activeTheme.guidedDoneColor
-            : activeTheme.teams[p.side].body,
+        teamColor:
+          guidedSelectedId === p.onCourtId
+            ? activeTheme.guidedSelectedColor
+            : liberoOnCourtIdsRef.current.has(p.onCourtId)
+              ? activeTheme.liberoColor
+              : guidedDoneIds?.has(p.onCourtId)
+                ? activeTheme.guidedDoneColor
+                : activeTheme.teams[p.side].body,
         pose: p.pose,
         facingRad: p.facingRad,
       }));
