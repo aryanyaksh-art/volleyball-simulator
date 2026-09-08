@@ -26,6 +26,8 @@ export interface SpeedCapDiagnostic {
   code: 'SPEED_CAP_EXCEEDED';
   severity: 'error';
   onCourtId: string;
+  /** The step this violation's segment came from — lets a "fix it" UI apply suggestedDurationS to the right step directly, without the caller having to re-derive which step produced this segment. */
+  stepId: string;
   requiredMps: number;
   capMps: number;
   message: string;
@@ -40,6 +42,7 @@ export interface SpeedCapDiagnostic {
  */
 export const checkSpeedCap = (
   onCourtId: string,
+  stepId: string,
   mode: Exclude<MovementMode, 'hold'>,
   distanceM: number,
   durationS: number,
@@ -54,6 +57,7 @@ export const checkSpeedCap = (
     code: 'SPEED_CAP_EXCEEDED',
     severity: 'error',
     onCourtId,
+    stepId,
     requiredMps,
     capMps,
     suggestedDurationS,

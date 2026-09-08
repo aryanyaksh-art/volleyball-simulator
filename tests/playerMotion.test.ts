@@ -12,19 +12,24 @@ describe('pathLength', () => {
 describe('checkSpeedCap', () => {
   it('flags a move that is physically impossible for its mode', () => {
     // 6.2 m in 0.80 s = 7.75 m/s, well over the 6.5 m/s sprint cap.
-    const diagnostic = checkSpeedCap('B:MB1', 'sprint', 6.2, 0.8);
+    const diagnostic = checkSpeedCap('B:MB1', 'step1', 'sprint', 6.2, 0.8);
     expect(diagnostic).not.toBeNull();
     expect(diagnostic?.code).toBe('SPEED_CAP_EXCEEDED');
     expect(diagnostic?.capMps).toBe(6.5);
     expect(diagnostic?.suggestedDurationS).toBeGreaterThan(0.8);
   });
 
+  it('carries the stepId through, for a "fix it" UI to target the right step', () => {
+    const diagnostic = checkSpeedCap('B:MB1', 'step-xyz', 'sprint', 6.2, 0.8);
+    expect(diagnostic?.stepId).toBe('step-xyz');
+  });
+
   it('does not flag a move within the mode cap', () => {
-    expect(checkSpeedCap('B:MB1', 'sprint', 3.0, 1.0)).toBeNull();
+    expect(checkSpeedCap('B:MB1', 'step1', 'sprint', 3.0, 1.0)).toBeNull();
   });
 
   it('the suggested duration brings the move back under the cap', () => {
-    const diagnostic = checkSpeedCap('B:MB1', 'sprint', 6.2, 0.8)!;
+    const diagnostic = checkSpeedCap('B:MB1', 'step1', 'sprint', 6.2, 0.8)!;
     expect(6.2 / diagnostic.suggestedDurationS).toBeLessThanOrEqual(6.5);
   });
 });

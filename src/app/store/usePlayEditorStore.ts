@@ -49,9 +49,12 @@ interface PlayEditorState {
   past: Play[];
   future: Play[];
   savedPlays: Record<string, Play>;
+  /** Which endpoint of the selected step's ball segment a 3D drag commits to — UI state, not play data, so it lives here alongside selectedStepId rather than going through undo/redo history. */
+  ballDragTarget: 'from' | 'to';
 
   loadPlay: (play: Play, ctx: BakeContext) => void;
   selectStep: (stepId: string | null) => void;
+  setBallDragTarget: (target: 'from' | 'to') => void;
 
   addStep: () => void;
   removeStep: (stepId: string) => void;
@@ -105,6 +108,7 @@ export const usePlayEditorStore = create<PlayEditorState>((set, get) => {
     past: [],
     future: [],
     savedPlays: loadSavedPlays(),
+    ballDragTarget: 'from',
 
     loadPlay: (play, ctx) => {
       const baked = bakePlayForEditing(play, ctx);
@@ -112,6 +116,7 @@ export const usePlayEditorStore = create<PlayEditorState>((set, get) => {
     },
 
     selectStep: (stepId) => set({ selectedStepId: stepId }),
+    setBallDragTarget: (target) => set({ ballDragTarget: target }),
 
     addStep: () =>
       mutate((play) => {

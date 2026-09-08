@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { toLocal, toWorld, type Side } from '@/core/court/coordinates';
+import { nearestZone, ZONE_BASE } from '@/core/court/anchors';
 
 export interface DraggableRoot {
   id: string;
@@ -55,7 +57,19 @@ export class PlayerDragController {
     return this.raycaster.ray.intersectPlane(FLOOR_PLANE, hit) ? hit : null;
   }
 
-  private snap(v: THREE.Vector3, free: boolean): THREE.Vector3 {
+  /** Which side's court a world point falls on — the two sides mirror across the net (z=0), so this is purely geometric, no external "who's dragging" context needed. */
+  private sideOf(v: THREE.Vector3): Side {
+    return v.z >= 0 ? 'A' : 'B';
+  }
+
+  private snap(v: THREE.Vector3, free: boolean, zoneSnap: boolean): THREE.Vector3 {
+    if (zoneSnap) {
+      const side = this.sideOf(v);
+      const local = toLocal({ x: v.x, y: 0, z: v.z }, side);
+      const zone = nearestZone(local);
+      const world = toWorld(ZONE_BASE[zone], side, 0);
+      return new THREE.Vector3(world.x, 0, world.z);
+    }
     if (free) return v;
     return new THREE.Vector3(Math.round(v.x * 10) / 10, 0, Math.round(v.z * 10) / 10);
   }
@@ -85,7 +99,7 @@ export class PlayerDragController {
     this.updatePointer(e);
     const hit = this.floorHit();
     if (!hit) return;
-    this.params.onDragMove(this.draggingId, this.snap(hit, e.shiftKey));
+    this.params.onDragMove(this.draggingId, this.snap(hit, e.shiftKey, e.altKey));
   };
 
   private handlePointerUp = (e: PointerEvent): void => {
@@ -97,7 +111,7 @@ export class PlayerDragController {
 
     this.updatePointer(e);
     const hit = this.floorHit();
-    if (hit) this.params.onDragEnd(id, this.snap(hit, e.shiftKey));
+    if (hit) this.params.onDragEnd(id, this.snap(hit, e.shiftKey, e.altKey));
   };
 
   dispose(): void {

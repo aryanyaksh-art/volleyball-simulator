@@ -125,6 +125,7 @@ export const compilePlay = (play: Play, ctx: CompileContext): PlaySchedule => {
         playerTracks[onCourtId].push({
           onCourtId,
           side: mv.who.side,
+          stepId: step.id,
           startS: legCursor,
           endS: legEnd,
           from: waypoints[i],
@@ -157,6 +158,7 @@ export const compilePlay = (play: Play, ctx: CompileContext): PlaySchedule => {
       playerTracks[p.onCourtId].push({
         onCourtId: p.onCourtId,
         side: p.side,
+        stepId: step.id,
         startS: stepStart,
         endS: stepEnd,
         from: pos,

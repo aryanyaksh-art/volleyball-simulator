@@ -40,6 +40,8 @@ export const createWorldState = (): WorldState => ({
 export interface PlayerTrackSegment {
   onCourtId: string;
   side: Side;
+  /** The PlayStep this segment came from — lets a diagnostic point back at a specific step (e.g. a speed-cap violation's "extend this step" fix). */
+  stepId: string;
   startS: number;
   endS: number;
   from: LocalPos;

@@ -34,6 +34,7 @@ import { diagnosePlay } from '@/core/play/diagnostics';
 import { analyzeServeReceive, buildPassers } from '@/core/tactics/serveReceive';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
 import { commitPositionAction } from '@/app/guidedAuthoring';
+import type { Vec3 } from '@/core/math/vec';
 
 const SERVE_RECEIVE_CELL_SIZE_M = 0.4;
 const SERVE_CONTACT_HEIGHT_M = 2.2;
@@ -136,6 +137,8 @@ export function SceneCanvas() {
   const rendererRef = useRef<SceneRenderer | null>(null);
   const bridgeRef = useRef<SceneBridge | null>(null);
   const dragControllerRef = useRef<PlayerDragController | null>(null);
+  const ballDragControllerRef = useRef<PlayerDragController | null>(null);
+  const dragOriginalPosRef = useRef<{ id: string; pos: Vec3 } | null>(null);
   const benchDragControllerRef = useRef<BenchDragController | null>(null);
   const guidedPlayControllerRef = useRef<GuidedPlayController | null>(null);
   const scheduleRef = useRef<PlaySchedule | null>(null);
@@ -301,9 +304,21 @@ export function SceneCanvas() {
         renderer.cameraRig.controls.enabled = enabled;
       },
       onDragMove: (id, worldPos) => {
+        if (dragOriginalPosRef.current?.id !== id) {
+          // First move event for this drag — capture wherever the mesh
+          // still is, before this call moves it, as the ghost's anchor.
+          const current = bridge.getPlayerRoots().find((r) => r.id === id)?.root.position;
+          if (current) dragOriginalPosRef.current = { id, pos: { x: current.x, y: current.y, z: current.z } };
+        }
+        const [side] = id.split(':') as [Side, string];
+        const theme = THEME_PRESETS[useAppStore.getState().themeId];
+        const color = theme.teams[side].body;
+        if (dragOriginalPosRef.current) bridge.setDragGhost(dragOriginalPosRef.current.pos, { x: worldPos.x, y: 0, z: worldPos.z }, color);
         bridge.setPlayerPosition(id, { x: worldPos.x, y: 0, z: worldPos.z });
       },
       onDragEnd: (id, worldPos) => {
+        dragOriginalPosRef.current = null;
+        bridge.clearDragGhost();
         const [side, slotStr] = id.split(':') as [Side, string];
         const slot = Number(slotStr);
         const stepId = usePlayEditorStore.getState().selectedStepId;
@@ -313,6 +328,39 @@ export function SceneCanvas() {
       },
     });
     dragControllerRef.current = dragController;
+
+    const ballDragController = new PlayerDragController({
+      domElement: renderer.renderer.domElement,
+      camera: renderer.cameraRig.camera,
+      getDraggables: () => bridge.getBallRoot(),
+      isEnabled: () => {
+        const playback = usePlaybackStore.getState();
+        const editor = usePlayEditorStore.getState();
+        if (playback.mode !== 'author' || playback.playing || !useAppStore.getState().authorAdvancedMode) return false;
+        const step = editor.play?.steps.find((s) => s.id === editor.selectedStepId);
+        return step?.ball != null;
+      },
+      setOrbitEnabled: (enabled) => {
+        renderer.cameraRig.controls.enabled = enabled;
+      },
+      onDragMove: (_id, worldPos) => {
+        bridge.setBallPosition({ x: worldPos.x, y: 0, z: worldPos.z });
+      },
+      onDragEnd: (_id, worldPos) => {
+        const editor = usePlayEditorStore.getState();
+        const stepId = editor.selectedStepId;
+        const step = editor.play?.steps.find((s) => s.id === stepId);
+        if (!stepId || !step?.ball) return;
+        // Ball positions are always expressed in side A's own local frame
+        // (bake.ts's canonical choice for "a world point as a LocalPos" —
+        // it doesn't mean the ball belongs to side A).
+        const pos = toLocal({ x: worldPos.x, y: 0, z: worldPos.z }, 'A');
+        const existingY = editor.ballDragTarget === 'from' ? (step.ball.from.kind === 'local' ? (step.ball.from.y ?? 0) : 0) : step.ball.to.kind === 'local' ? (step.ball.to.y ?? 0) : 0;
+        if (editor.ballDragTarget === 'from') editor.setBallFromPosition(stepId, pos, existingY);
+        else editor.setBallToPosition(stepId, pos, existingY);
+      },
+    });
+    ballDragControllerRef.current = ballDragController;
 
     const benchDragController = new BenchDragController({
       domElement: renderer.renderer.domElement,
@@ -423,6 +471,7 @@ export function SceneCanvas() {
 
     return () => {
       dragController.dispose();
+      ballDragController.dispose();
       benchDragController.dispose();
       guidedPlayController.dispose();
       bridge.dispose();
@@ -430,6 +479,7 @@ export function SceneCanvas() {
       rendererRef.current = null;
       bridgeRef.current = null;
       dragControllerRef.current = null;
+      ballDragControllerRef.current = null;
       useAppStore.getState().setSceneCanvasEl(null);
       useAppStore.getState().setSceneCameraRig(null);
     };

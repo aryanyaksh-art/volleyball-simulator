@@ -37,7 +37,7 @@ export const diagnosePlay = (schedule: PlaySchedule, courtSpec: CourtSpec = DEFA
       if (seg.mode === 'hold') continue;
       const distanceM = distanceLocal(seg.from, seg.to);
       const durationS = seg.endS - seg.startS;
-      const diagnostic = checkSpeedCap(onCourtId, seg.mode as Exclude<MovementMode, 'hold'>, distanceM, durationS);
+      const diagnostic = checkSpeedCap(onCourtId, seg.stepId, seg.mode as Exclude<MovementMode, 'hold'>, distanceM, durationS);
       if (diagnostic) speedCapViolations.push(diagnostic);
     }
   }

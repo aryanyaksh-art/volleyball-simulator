@@ -26,6 +26,8 @@ export function StepInspector() {
   const setBallToPosition = usePlayEditorStore((s) => s.setBallToPosition);
   const setBallApex = usePlayEditorStore((s) => s.setBallApex);
   const setBallDuration = usePlayEditorStore((s) => s.setBallDuration);
+  const ballDragTarget = usePlayEditorStore((s) => s.ballDragTarget);
+  const setBallDragTarget = usePlayEditorStore((s) => s.setBallDragTarget);
 
   const rosters = useLineupStore((s) => s.rosters);
   const lineups = useLineupStore((s) => s.lineups);
@@ -58,6 +60,21 @@ export function StepInspector() {
           </button>
         ) : (
           <>
+            <div className="control-group">
+              <span className="control-label">Dragging in 3D moves</span>
+              <button
+                className={ballDragTarget === 'from' ? 'chip chip-small chip-active' : 'chip chip-small'}
+                onClick={() => setBallDragTarget('from')}
+              >
+                From
+              </button>
+              <button
+                className={ballDragTarget === 'to' ? 'chip chip-small chip-active' : 'chip chip-small'}
+                onClick={() => setBallDragTarget('to')}
+              >
+                To
+              </button>
+            </div>
             <table className="panel-table">
               <thead>
                 <tr>

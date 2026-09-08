@@ -20,6 +20,7 @@ import { buildApproachLaneGroup } from './overlays/ApproachLanes';
 import { buildBlockShadowMesh, buildTipRegionRing } from './overlays/BlockShadow';
 import { buildOpenAngleConesMesh } from './overlays/OpenAngleCones';
 import type { OpenAngleCones } from '@/core/tactics/block';
+import { buildDragGhostGroup } from './overlays/DragGhost';
 
 export interface PlayerPlacement {
   id: string;
@@ -70,6 +71,7 @@ export class SceneBridge {
   private blockShadowMesh: THREE.Mesh | null = null;
   private tipRegionMesh: THREE.Mesh | null = null;
   private openAngleMesh: THREE.Mesh | null = null;
+  private dragGhostGroup: THREE.Group | null = null;
   private ball: BallVisual;
   private ballTrail: BallTrail;
 
@@ -136,6 +138,31 @@ export class SceneBridge {
     this.ball.setState(pos, visible);
     if (visible) this.ballTrail.push(pos);
     else this.ballTrail.clear();
+  }
+
+  /** The ball's own mesh for hit-testing (BallDragController's raycasts), in the same {id, root} shape PlayerDragController's getDraggables already expects — lets the ball reuse that controller directly instead of a near-duplicate class. */
+  getBallRoot(): { id: string; root: THREE.Object3D }[] {
+    return [{ id: 'ball', root: this.ball.mesh }];
+  }
+
+  /** Live visual feedback while dragging the ball — moves the mesh directly, no store write (mirrors setPlayerPosition). */
+  setBallPosition(pos: Vec3): void {
+    this.ball.mesh.position.set(pos.x, pos.y, pos.z);
+  }
+
+  /** Shows (or updates) the drag-ghost marker + dashed path — a movement's original position and a line from there to wherever it's currently being dragged. Rebuilt every call rather than mutated in place; cheap enough for a drag's frame rate and simpler than tracking two separate sub-objects. */
+  setDragGhost(originalPos: Vec3, currentPos: Vec3, color: string): void {
+    this.clearDragGhost();
+    this.dragGhostGroup = buildDragGhostGroup(originalPos, currentPos, color);
+    this.scene.add(this.dragGhostGroup);
+  }
+
+  clearDragGhost(): void {
+    if (this.dragGhostGroup) {
+      this.scene.remove(this.dragGhostGroup);
+      disposeObject(this.dragGhostGroup);
+      this.dragGhostGroup = null;
+    }
   }
 
   /** Drops the ball trail without touching the ball's own visibility — used when playback jumps discontinuously (a loop wrap, a manual scrub) so the trail doesn't draw a streak across the gap. */
@@ -357,6 +384,7 @@ export class SceneBridge {
       disposeObject(this.openAngleMesh);
       this.openAngleMesh = null;
     }
+    this.clearDragGhost();
     this.scene.remove(this.ball.mesh);
     this.ball.dispose();
     this.scene.remove(this.ballTrail.group);
