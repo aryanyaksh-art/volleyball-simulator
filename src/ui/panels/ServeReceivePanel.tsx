@@ -135,7 +135,7 @@ export function ServeReceivePanel() {
         <tbody>
           {b.onCourt.map((p) => {
             const player = findPlayer(rosters[receivingSide], p.playerId);
-            const label = player ? `#${player.number} ${player.name}` : `slot ${p.slot + 1}`;
+            const label = player ? player.name : `slot ${p.slot + 1}`;
             const isPasser = passerSlots.includes(p.slot);
             return (
               <tr key={p.onCourtId}>

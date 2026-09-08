@@ -28,14 +28,14 @@ const isContactAction = (action: GuidedAction): action is GuidedContactAction =>
 const HITTER_ROLES: HitterRole[] = ['OH', 'MB', 'RS', 'pipe'];
 const SET_CALLS = Object.keys(SET_TEMPO_S) as SetCall[];
 
-/** "A:1" -> "#3 Outside 1" style label, falling back to the raw id if the roster/lineup lookup comes up empty (e.g. a slot with no one assigned). */
+/** "A:1" -> "Outside 1" style label, falling back to the raw id if the roster/lineup lookup comes up empty (e.g. a slot with no one assigned). */
 function playerLabel(onCourtId: string, rosters: ReturnType<typeof useLineupStore.getState>['rosters'], lineups: ReturnType<typeof useLineupStore.getState>['lineups'], rotations: ReturnType<typeof useLineupStore.getState>['rotations']): string {
   const [side, slotStr] = onCourtId.split(':') as [Side, string];
   const slot = Number(slotStr);
   const b = breakdown(lineups[side], rosters[side], side, rotations[side]);
   const onCourt = b.onCourt.find((p) => p.slot === slot);
   const player = onCourt ? findPlayer(rosters[side], onCourt.playerId) : undefined;
-  return player ? `#${player.number} ${player.name}` : onCourtId;
+  return player ? player.name : onCourtId;
 }
 
 export function GuidedAuthorPanel() {
@@ -113,7 +113,7 @@ export function GuidedAuthorPanel() {
       )}
       {!selectedOnCourtId && <p className="panel-note">Click a player in the 3D view to choose their action.</p>}
       {!selectedOnCourtId && emptySlotHint != null && (
-        <p className="panel-note">No player in zone {emptySlotHint} — bring one on from the bench overlay on the court.</p>
+        <p className="panel-note">No player in zone {emptySlotHint}. Bring one on from the bench overlay on the court.</p>
       )}
 
       {selectedOnCourtId && !pendingAction && (

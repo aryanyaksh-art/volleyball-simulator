@@ -214,7 +214,7 @@ export function StepInspector() {
                 {b.onCourt.map((p) => {
                   const player = findPlayer(rosters[side], p.playerId);
                   const mv = step.movements.find((m) => m.who.kind === 'slot' && m.who.side === side && m.who.index === p.slot);
-                  const label = player ? `#${player.number} ${player.name}` : `slot ${p.slot + 1}`;
+                  const label = player ? player.name : `slot ${p.slot + 1}`;
 
                   if (!mv) {
                     return (

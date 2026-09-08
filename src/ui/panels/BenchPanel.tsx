@@ -49,7 +49,7 @@ export function BenchPanel() {
               draggable
               onDragStart={(e) => writePlayerDragPayload(e.dataTransfer, { source: 'bench', playerId: p.id })}
             >
-              #{p.number} {p.name} <span className="bench-chip-role">{p.primaryRole}</span>
+              {p.name}
             </div>
           ))}
         </div>

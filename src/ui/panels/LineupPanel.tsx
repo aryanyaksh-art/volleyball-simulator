@@ -70,7 +70,7 @@ export function LineupPanel() {
                     .filter((p) => p.primaryRole !== 'L')
                     .map((p) => (
                       <option key={p.id} value={p.id}>
-                        #{p.number} {p.name} ({p.primaryRole})
+                        {p.name}
                       </option>
                     ))}
                 </select>

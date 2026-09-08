@@ -114,7 +114,7 @@ export function MatchupPanel() {
           <option value="">(zone default)</option>
           {attackerSlots.map((p) => {
             const player = findPlayer(rosters[attackingSide], p.playerId);
-            const label = player ? `#${player.number} ${player.name}` : `slot ${p.slot + 1}`;
+            const label = player ? player.name : `slot ${p.slot + 1}`;
             return (
               <option key={p.slot} value={p.slot}>
                 {label} (zone {p.zone ?? '-'})
@@ -171,7 +171,7 @@ export function MatchupPanel() {
           <option value="">none assigned</option>
           {defenderSlots.map((p) => {
             const player = findPlayer(rosters[defendingSide], p.playerId);
-            const label = player ? `#${player.number} ${player.name}` : `slot ${p.slot + 1}`;
+            const label = player ? player.name : `slot ${p.slot + 1}`;
             return (
               <option key={p.slot} value={p.slot}>
                 {label} (zone {p.zone ?? '-'})

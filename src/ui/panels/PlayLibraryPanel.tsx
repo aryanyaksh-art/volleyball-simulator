@@ -71,7 +71,7 @@ export function PlayLibraryPanel() {
     <div className="panel">
       <h3 className="panel-title">Play library</h3>
       {plays.length === 0 ? (
-        <p className="panel-note">No saved plays yet — build one in Design play, then Save play.</p>
+        <p className="panel-note">No saved plays yet. Build one in Design play, then Save play.</p>
       ) : (
         <table className="panel-table">
           <thead>
