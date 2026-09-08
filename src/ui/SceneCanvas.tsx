@@ -33,7 +33,7 @@ import { createWorldState, type PlaySchedule, type WorldState } from '@/core/pla
 import { diagnosePlay } from '@/core/play/diagnostics';
 import { analyzeServeReceive, type Passer } from '@/core/tactics/serveReceive';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
-import { commitPositionAction, guidedDoneOnCourtIds } from '@/app/guidedAuthoring';
+import { commitPositionAction } from '@/app/guidedAuthoring';
 
 const SERVE_RECEIVE_CELL_SIZE_M = 0.4;
 const SERVE_CONTACT_HEIGHT_M = 2.2;
@@ -209,6 +209,12 @@ export function SceneCanvas() {
           if (playback.loop) t = schedule.durationS > 0 ? t % schedule.durationS : 0;
           else {
             t = schedule.durationS;
+            // setT immediately (not just the throttled every-5th-frame sync
+            // below) so the store's own t is reliably at the exact end the
+            // moment playback stops — otherwise "hit Play to rewatch" (see
+            // usePlaybackStore.toggle) can't reliably detect "already at the
+            // end" and silently does nothing instead of restarting.
+            usePlaybackStore.getState().setT(t);
             usePlaybackStore.getState().pause();
           }
         }
@@ -222,8 +228,6 @@ export function SceneCanvas() {
 
       const activeTheme = THEME_PRESETS[useAppStore.getState().themeId];
       const guidedActive = playback.mode === 'author' && !useAppStore.getState().authorAdvancedMode;
-      const guidedPlay = guidedActive ? usePlayEditorStore.getState().play : null;
-      const guidedDoneIds = guidedPlay ? guidedDoneOnCourtIds(guidedPlay) : null;
       const guidedSelectedId = guidedActive ? useGuidedAuthorStore.getState().selectedOnCourtId : null;
       const placements: PlayerPlacement[] = world.players.map((p) => ({
         id: p.onCourtId,
@@ -234,9 +238,7 @@ export function SceneCanvas() {
             ? activeTheme.guidedSelectedColor
             : liberoOnCourtIdsRef.current.has(p.onCourtId)
               ? activeTheme.liberoColor
-              : guidedDoneIds?.has(p.onCourtId)
-                ? activeTheme.guidedDoneColor
-                : activeTheme.teams[p.side].body,
+              : activeTheme.teams[p.side].body,
         pose: p.pose,
         facingRad: p.facingRad,
       }));

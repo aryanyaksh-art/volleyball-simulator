@@ -21,7 +21,6 @@ const blueprint: Theme = {
   ball: { color: '#ffd23f', trailColor: '#ffe9a8' },
   liberoColor: '#ffffff',
   benchColor: '#4a5058',
-  guidedDoneColor: '#ffcf40',
   guidedSelectedColor: '#ff2d95',
   overlays: {
     violation: '#ff3b30',
@@ -56,7 +55,6 @@ const court: Theme = {
   ball: { color: '#f2b134', trailColor: '#f7d38a' },
   liberoColor: '#ffffff',
   benchColor: '#4a5058',
-  guidedDoneColor: '#ffb100',
   guidedSelectedColor: '#ff2d95',
   overlays: {
     violation: '#ff5c4d',
@@ -85,7 +83,6 @@ const whiteboard: Theme = {
   ball: { color: '#f2542d', trailColor: '#f7a58a' },
   liberoColor: '#101113',
   benchColor: '#9a9a94',
-  guidedDoneColor: '#c98a00',
   guidedSelectedColor: '#d6006f',
   overlays: {
     violation: '#d62828',
@@ -100,4 +97,4 @@ const whiteboard: Theme = {
 };
 
 export const THEME_PRESETS: Record<string, Theme> = { blueprint, court, whiteboard };
-export const DEFAULT_THEME_ID = 'blueprint';
+export const DEFAULT_THEME_ID = 'court';

@@ -296,17 +296,6 @@ export const commitPositionAction = (play: Play, params: CommitPositionParams): 
   return { ...play, steps };
 };
 
-/** Every on-court player (`side:slot`) who has at least one movement anywhere in the play — used to color in guided authoring's "already assigned" players. Guided-built movements always reference a slot, never a role/zone/libero ref, so this only ever needs to handle that one PlayerRef kind. */
-export const guidedDoneOnCourtIds = (play: Play): Set<string> => {
-  const done = new Set<string>();
-  for (const step of play.steps) {
-    for (const m of step.movements) {
-      if (m.who.kind === 'slot') done.add(`${m.who.side}:${m.who.index}`);
-    }
-  }
-  return done;
-};
-
 const playerRefEquals = (a: PlayerRef, b: PlayerRef): boolean =>
   a.kind === 'slot' && b.kind === 'slot' && a.side === b.side && a.index === b.index;
 

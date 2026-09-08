@@ -44,7 +44,9 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
   setSelectedPlayId: (id) => set({ selectedPlayId: id, playing: false, t: 0 }),
   play: () => set({ playing: true }),
   pause: () => set({ playing: false }),
-  toggle: () => set((s) => ({ playing: !s.playing })),
+  /** Hitting Play again once a non-looping play has finished restarts it from the top instead of doing nothing (there's nowhere left to play to from the very end). */
+  toggle: () =>
+    set((s) => (!s.playing && s.durationS > 0 && s.t >= s.durationS ? { playing: true, t: 0 } : { playing: !s.playing })),
   setT: (t) => set({ t: Math.min(Math.max(t, 0), Math.max(get().durationS, 0)) }),
   setSpeed: (speed) => set({ speed }),
   setLoop: (loop) => set({ loop }),

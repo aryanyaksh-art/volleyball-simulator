@@ -44,9 +44,7 @@ export interface Theme {
   liberoColor: string;
   /** Dimmed color for players on the bench, in every theme. */
   benchColor: string;
-  /** Guided authoring only: a player who already has an action somewhere in the play being built turns this color, so a coach can see who's covered at a glance. */
-  guidedDoneColor: string;
-  /** Guided authoring only: the player currently selected for an action/bench-swap/edit — takes priority over guidedDoneColor so "selected" and "already has an action" never look identical (deselecting them then visibly reverts the color). */
+  /** Guided authoring only: the player currently selected for an action/bench-swap/edit. Deselecting always reverts to the plain team/libero color — there's deliberately no separate persistent "already has an action" indicator, since that read as a stuck selection rather than a useful signal. */
   guidedSelectedColor: string;
   overlays: {
     violation: string;
