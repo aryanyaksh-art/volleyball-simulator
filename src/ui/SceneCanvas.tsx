@@ -298,7 +298,12 @@ export function SceneCanvas() {
       getDraggables: () => bridge.getPlayerRoots(),
       isEnabled: () => {
         const playback = usePlaybackStore.getState();
-        return playback.mode === 'author' && !playback.playing && usePlayEditorStore.getState().selectedStepId != null;
+        return (
+          playback.mode === 'author' &&
+          !playback.playing &&
+          useAppStore.getState().authorAdvancedMode &&
+          usePlayEditorStore.getState().selectedStepId != null
+        );
       },
       setOrbitEnabled: (enabled) => {
         renderer.cameraRig.controls.enabled = enabled;
@@ -370,8 +375,11 @@ export function SceneCanvas() {
       setOrbitEnabled: (enabled) => {
         renderer.cameraRig.controls.enabled = enabled;
       },
-      onDrop: (sourceId, target) => {
-        if (!target) return;
+      onDragMove: (id, worldPos) => {
+        bridge.setPlayerPosition(id, { x: worldPos.x, y: 0, z: worldPos.z });
+      },
+      onDrop: (sourceId, target, worldPos) => {
+        if (!target || !worldPos) return;
         const lineupState = useLineupStore.getState();
 
         if (sourceId.startsWith('bench:')) {
@@ -393,12 +401,30 @@ export function SceneCanvas() {
           return;
         }
 
-        if (target.side !== side || target.zone === sourceZone) return;
-        const targetSlot = playerSlotInZone(rotation, target.zone);
-        const displacedPlayerId = lineupState.lineups[side].order[targetSlot];
-        const movingPlayerId = lineupState.lineups[side].order[sourceSlot];
-        lineupState.setOrderSlot(side, targetSlot, movingPlayerId);
-        lineupState.setOrderSlot(side, sourceSlot, displacedPlayerId);
+        if (target.side !== side) return;
+
+        // Dropped right on top of a teammate already standing there swaps
+        // places with them, wherever their own position happens to be
+        // (drag-to-swap). Anywhere else on the court is a free reposition
+        // of the dragged player, not restricted to the 6 zone anchors.
+        const SWAP_RADIUS_M = 0.6;
+        const landedOn = bridge
+          .getPlayerRoots()
+          .filter((r) => r.id !== sourceId && r.id.startsWith(`${side}:`))
+          .find((r) => Math.hypot(r.root.position.x - worldPos.x, r.root.position.z - worldPos.z) < SWAP_RADIUS_M);
+
+        if (landedOn) {
+          const otherZone = Number(landedOn.id.split(':')[1]) as ZoneNumber;
+          const targetSlot = playerSlotInZone(rotation, otherZone);
+          const displacedPlayerId = lineupState.lineups[side].order[targetSlot];
+          const movingPlayerId = lineupState.lineups[side].order[sourceSlot];
+          lineupState.setOrderSlot(side, targetSlot, movingPlayerId);
+          lineupState.setOrderSlot(side, sourceSlot, displacedPlayerId);
+          return;
+        }
+
+        const local = toLocal({ x: worldPos.x, y: 0, z: worldPos.z }, side);
+        lineupState.setPositionOverride(side, sourceZone, local);
       },
     });
     benchDragControllerRef.current = benchDragController;

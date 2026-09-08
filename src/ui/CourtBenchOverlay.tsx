@@ -18,11 +18,12 @@ type PendingMode = null | 'add' | 'remove';
  * practice, and its own roster "+ new player" shortcut had a real bug — one
  * text field doubling as both name and (if left blank) an accidental
  * number, so a stray click could silently create a player literally named
- * "1". Add/Remove now just walk through two clear picks: who, then (for
- * Add) who they're replacing. Creating a brand new roster player stays in
- * RosterPanel (Advanced formation mode), which already has a proper
- * name/number/role form — this overlay only ever operates on players who
- * already exist on the roster.
+ * "1". Add/Remove now just walk through clear picks: who, then, only if
+ * the court side is already full, who they're replacing (an empty slot
+ * gets the new player immediately, no replacement question asked).
+ * Creating a brand new roster player stays in RosterPanel (Advanced
+ * formation mode), which already has a proper name/number/role form; this
+ * overlay only ever operates on players who already exist on the roster.
  */
 function SideBench({ side, position }: { side: Side; position: 'top' | 'bottom' }) {
   const roster = useLineupStore((s) => s.rosters[side]);
@@ -41,10 +42,21 @@ function SideBench({ side, position }: { side: Side; position: 'top' | 'bottom' 
     .filter((oc) => !oc.isLibero) // liberos swap in/out automatically — not manually removable here
     .map((oc) => ({ slot: oc.slot, player: findPlayer(roster, oc.playerId) }))
     .filter((x): x is { slot: number; player: RosterPlayer } => x.player != null);
+  const emptySlots = lineup.order.map((id, slot) => ({ id, slot })).filter((x) => x.id == null).map((x) => x.slot);
 
   const cancel = () => {
     setPendingMode(null);
     setAddingPlayerId(null);
+  };
+
+  /** An empty slot needs no one replaced — put the player straight on. Only ask who to bump when the court's genuinely full. */
+  const addToCourt = (playerId: string) => {
+    if (emptySlots.length > 0) {
+      setOrderSlot(side, emptySlots[0], playerId);
+      cancel();
+      return;
+    }
+    setAddingPlayerId(playerId);
   };
 
   return (
@@ -63,7 +75,7 @@ function SideBench({ side, position }: { side: Side; position: 'top' | 'bottom' 
               Remove
             </button>
           </div>
-          <p className="panel-note">{bench.length === 0 ? "Everyone's on the court." : bench.map((p) => `#${p.number} ${p.name}`).join(', ')}</p>
+          <p className="panel-note">{bench.length === 0 ? "Everyone's on the court." : bench.map((p) => p.name).join(', ')}</p>
         </>
       )}
 
@@ -71,8 +83,8 @@ function SideBench({ side, position }: { side: Side; position: 'top' | 'bottom' 
         <div className="court-bench-picker">
           <p className="panel-note">Bring on:</p>
           {bench.map((p) => (
-            <button key={p.id} className="chip chip-small court-bench-option" onClick={() => setAddingPlayerId(p.id)}>
-              #{p.number} {p.name}
+            <button key={p.id} className="chip chip-small court-bench-option" onClick={() => addToCourt(p.id)}>
+              {p.name}
             </button>
           ))}
           <button className="chip chip-small" onClick={cancel}>
@@ -93,7 +105,7 @@ function SideBench({ side, position }: { side: Side; position: 'top' | 'bottom' 
                 cancel();
               }}
             >
-              #{player.number} {player.name}
+              {player.name}
             </button>
           ))}
           <button className="chip chip-small" onClick={cancel}>
@@ -114,7 +126,7 @@ function SideBench({ side, position }: { side: Side; position: 'top' | 'bottom' 
                 cancel();
               }}
             >
-              #{player.number} {player.name}
+              {player.name}
             </button>
           ))}
           <button className="chip chip-small" onClick={cancel}>
@@ -126,6 +138,23 @@ function SideBench({ side, position }: { side: Side; position: 'top' | 'bottom' 
   );
 }
 
+function ResetPositionsButton() {
+  const resetPositionOverrides = useLineupStore((s) => s.resetPositionOverrides);
+  const hasOverrides = useLineupStore((s) => Object.keys(s.positionOverrides.A).length > 0 || Object.keys(s.positionOverrides.B).length > 0);
+  return (
+    <button
+      className="chip reset-positions-button"
+      disabled={!hasOverrides}
+      onClick={() => {
+        resetPositionOverrides('A');
+        resetPositionOverrides('B');
+      }}
+    >
+      Reset positions
+    </button>
+  );
+}
+
 export function CourtBenchOverlay() {
   const mode = usePlaybackStore((s) => s.mode);
   if (mode !== 'formation' && mode !== 'author') return null;
@@ -133,6 +162,7 @@ export function CourtBenchOverlay() {
     <>
       <SideBench side="B" position="top" />
       <SideBench side="A" position="bottom" />
+      {mode === 'formation' && <ResetPositionsButton />}
     </>
   );
 }

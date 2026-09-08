@@ -19,7 +19,10 @@ export interface BenchDragControllerParams {
   getDraggables: () => BenchDraggableRoot[];
   isEnabled: () => boolean;
   setOrbitEnabled: (enabled: boolean) => void;
-  onDrop: (sourceId: string, target: BenchDropTarget) => void;
+  /** Live visual feedback while dragging — no store writes, just moving the object. */
+  onDragMove: (id: string, worldPos: THREE.Vector3) => void;
+  /** `worldPos` is the drop point itself (0.1m grid-snapped unless Shift is held) — the caller decides whether that's a zone/bench swap or a free reposition. */
+  onDrop: (sourceId: string, target: BenchDropTarget, worldPos: THREE.Vector3 | null) => void;
 }
 
 const FLOOR_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -35,11 +38,13 @@ export function resolveDropTarget(hit: THREE.Vector3): BenchDropTarget {
 }
 
 /**
- * Formation-mode-only sibling of PlayerDragController: drags a player (from
- * the bench or the court) and drops them onto a zone or the bench, instead
- * of dragging an already-on-court player to a new movement target within an
- * authored step. Same raycast-to-floor-plane approach, different drop
- * semantics — this one never touches Movement/BallSegment data at all.
+ * Formation-mode-only sibling of PlayerDragController: drags a player from
+ * the bench or the court across the floor plane, live, and reports the drop
+ * point back to the caller instead of writing to a Movement/BallSegment the
+ * way PlayerDragController does. `resolveDropTarget` still classifies a drop
+ * as a zone or the bench so the caller can offer a swap or a bench transfer,
+ * but the raw drop position is also passed through so an on-court player can
+ * land anywhere on the floor, not just on one of the 6 zone anchors.
  */
 export class BenchDragController {
   private raycaster = new THREE.Raycaster();
@@ -50,6 +55,7 @@ export class BenchDragController {
   constructor(params: BenchDragControllerParams) {
     this.params = params;
     params.domElement.addEventListener('pointerdown', this.handlePointerDown);
+    params.domElement.addEventListener('pointermove', this.handlePointerMove);
     params.domElement.addEventListener('pointerup', this.handlePointerUp);
     params.domElement.addEventListener('pointercancel', this.handlePointerUp);
   }
@@ -64,6 +70,11 @@ export class BenchDragController {
     this.raycaster.setFromCamera(this.pointer, this.params.camera);
     const hit = new THREE.Vector3();
     return this.raycaster.ray.intersectPlane(FLOOR_PLANE, hit) ? hit : null;
+  }
+
+  private snap(v: THREE.Vector3, free: boolean): THREE.Vector3 {
+    if (free) return v;
+    return new THREE.Vector3(Math.round(v.x * 10) / 10, 0, Math.round(v.z * 10) / 10);
   }
 
   private handlePointerDown = (e: PointerEvent): void => {
@@ -86,6 +97,13 @@ export class BenchDragController {
     this.params.domElement.setPointerCapture(e.pointerId);
   };
 
+  private handlePointerMove = (e: PointerEvent): void => {
+    if (!this.draggingId) return;
+    this.updatePointer(e);
+    const hit = this.floorHit();
+    if (hit) this.params.onDragMove(this.draggingId, this.snap(hit, e.shiftKey));
+  };
+
   private handlePointerUp = (e: PointerEvent): void => {
     if (!this.draggingId) return;
     const id = this.draggingId;
@@ -95,11 +113,13 @@ export class BenchDragController {
 
     this.updatePointer(e);
     const hit = this.floorHit();
-    this.params.onDrop(id, hit ? resolveDropTarget(hit) : null);
+    const snapped = hit ? this.snap(hit, e.shiftKey) : null;
+    this.params.onDrop(id, snapped ? resolveDropTarget(snapped) : null, snapped);
   };
 
   dispose(): void {
     this.params.domElement.removeEventListener('pointerdown', this.handlePointerDown);
+    this.params.domElement.removeEventListener('pointermove', this.handlePointerMove);
     this.params.domElement.removeEventListener('pointerup', this.handlePointerUp);
     this.params.domElement.removeEventListener('pointercancel', this.handlePointerUp);
   }

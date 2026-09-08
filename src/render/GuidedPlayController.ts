@@ -98,6 +98,7 @@ export class GuidedPlayController {
       if (movedPx <= DRAG_THRESHOLD_PX) return;
       this.isDragging = true;
       this.params.setOrbitEnabled(false);
+      this.params.domElement.setPointerCapture(e.pointerId);
     }
     this.updatePointer(e.clientX, e.clientY);
     const hit = this.floorHit();
@@ -113,6 +114,7 @@ export class GuidedPlayController {
 
     if (wasDragging) {
       this.params.setOrbitEnabled(true);
+      this.params.domElement.releasePointerCapture(e.pointerId);
       if (downId) {
         this.updatePointer(e.clientX, e.clientY);
         const hit = this.floorHit();
