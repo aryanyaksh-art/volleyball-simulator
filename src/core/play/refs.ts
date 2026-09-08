@@ -93,6 +93,37 @@ export const CONTACT_HEIGHT_M: Record<NonNullable<Extract<PositionRef, { kind: '
 };
 
 /**
+ * World-space yaw (radians) for a player standing at `fromWorld` to face
+ * `who` — the `Movement.facing = { atPlayer }` option. Derived from
+ * Three.js's standard, unmodified Y-axis rotation matrix on `root.rotation.y`
+ * (PlayerVisual.setFacing sets it directly, no correction layered on top,
+ * unlike the pose rig's joint rotations): rotY(theta) maps a local +Z unit
+ * vector to the world direction (sin(theta), 0, cos(theta)). That's
+ * consistent with the already-established defaultFacing convention in
+ * compile.ts (side A, sitting at positive world z, faces the net at
+ * theta=PI, i.e. -Z; side B faces it at theta=0, i.e. +Z) — both anchor
+ * points land exactly on this formula, so this rig's forward axis is local
+ * +Z. Solving sin(theta)=dx/r, cos(theta)=dz/r for an arbitrary direction
+ * gives theta = atan2(dx, dz). Returns null if the target can't be resolved
+ * or the two points coincide (no defined direction to face).
+ */
+export const resolveFacingToward = (
+  fromWorld: Vec3,
+  who: PlayerRef,
+  ctx: RefContext,
+  snapshot: RefSnapshot,
+): number | null => {
+  const onCourtId = resolvePlayerRef(who, ctx);
+  const pos = onCourtId ? snapshot.positions[onCourtId] : null;
+  if (!pos) return null;
+  const targetWorld = toWorld(pos, who.side, 0);
+  const dx = targetWorld.x - fromWorld.x;
+  const dz = targetWorld.z - fromWorld.z;
+  if (Math.abs(dx) < 1e-9 && Math.abs(dz) < 1e-9) return null;
+  return Math.atan2(dx, dz);
+};
+
+/**
  * Resolves a PositionRef to a world-space point — used for the ball, which
  * (unlike a player) inherently crosses between sides, so there's no single
  * "local frame" to express it in.

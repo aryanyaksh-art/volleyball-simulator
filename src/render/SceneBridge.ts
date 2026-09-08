@@ -13,6 +13,7 @@ import { buildAntennaGroup } from './court/AntennaMesh';
 import { buildGridMesh } from './court/GridMesh';
 import { buildViolationOverlayGroup, type ViolationLink } from './overlays/ViolationOverlay';
 import { BallVisual } from './ball/BallVisual';
+import { BallTrail } from './ball/BallTrail';
 import { buildCoverageHeatmap } from './overlays/CoverageHeatmap';
 import type { ServeReceiveCell } from '@/core/tactics/serveReceive';
 import { buildApproachLaneGroup } from './overlays/ApproachLanes';
@@ -67,6 +68,7 @@ export class SceneBridge {
   private blockShadowMesh: THREE.Mesh | null = null;
   private tipRegionMesh: THREE.Mesh | null = null;
   private ball: BallVisual;
+  private ballTrail: BallTrail;
 
   constructor(scene: THREE.Scene, theme: Theme, factory: HumanoidFactory, courtSpec: CourtSpec = DEFAULT_COURT_SPEC) {
     this.scene = scene;
@@ -75,6 +77,8 @@ export class SceneBridge {
     this.courtSpec = courtSpec;
     this.ball = new BallVisual(theme);
     this.scene.add(this.ball.mesh);
+    this.ballTrail = new BallTrail(theme);
+    this.scene.add(this.ballTrail.group);
     this.rebuildStatic();
   }
 
@@ -121,11 +125,19 @@ export class SceneBridge {
   setTheme(theme: Theme): void {
     this.theme = theme;
     this.ball.setTheme(theme);
+    this.ballTrail.setTheme(theme);
     this.rebuildStatic();
   }
 
   setBallState(pos: Vec3, visible: boolean): void {
     this.ball.setState(pos, visible);
+    if (visible) this.ballTrail.push(pos);
+    else this.ballTrail.clear();
+  }
+
+  /** Drops the ball trail without touching the ball's own visibility — used when playback jumps discontinuously (a loop wrap, a manual scrub) so the trail doesn't draw a streak across the gap. */
+  clearBallTrail(): void {
+    this.ballTrail.clear();
   }
 
   setFormation(placements: PlayerPlacement[]): void {
@@ -325,5 +337,7 @@ export class SceneBridge {
     }
     this.scene.remove(this.ball.mesh);
     this.ball.dispose();
+    this.scene.remove(this.ballTrail.group);
+    this.ballTrail.dispose();
   }
 }

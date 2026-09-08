@@ -10,6 +10,7 @@ import type { PoseId } from './poses';
 import type { Play } from './types';
 import type { PlaySchedule, PlayerTrackSegment, BallTrackSegment } from './schedule';
 import {
+  resolveFacingToward,
   resolvePlayerRef,
   resolvePositionRef,
   resolvePositionToWorld,
@@ -92,7 +93,11 @@ export const compilePlay = (play: Play, ctx: CompileContext): PlaySchedule => {
       const segEnd = segStart + Math.max(segDuration, 0);
       const pose = mv.pose ?? currentPose[onCourtId];
       const facingFrom = currentFacing[onCourtId];
-      const facingTo = mv.facing && 'rad' in mv.facing ? mv.facing.rad : facingFrom;
+      const facingTo = mv.facing
+        ? 'rad' in mv.facing
+          ? mv.facing.rad
+          : (resolveFacingToward(toWorld(fromPos, mv.who.side, 0), mv.facing.atPlayer, refCtx, snapshot) ?? facingFrom)
+        : facingFrom;
 
       // Waypoints (mv.via) resolve against the same step-start snapshot as
       // `to`, then split the movement's total duration into consecutive

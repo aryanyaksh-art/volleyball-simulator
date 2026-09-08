@@ -143,6 +143,7 @@ export function SceneCanvas() {
   const worldStateRef = useRef<WorldState>(createWorldState());
   const tRef = useRef(0);
   const frameCountRef = useRef(0);
+  const wasPlayingRef = useRef(false);
 
   const themeId = useAppStore((s) => s.themeId);
   const cameraPreset = useAppStore((s) => s.cameraPreset);
@@ -210,7 +211,22 @@ export function SceneCanvas() {
       const schedule = scheduleRef.current;
       if ((playback.mode !== 'play' && playback.mode !== 'author') || !schedule) return;
 
-      let t = tRef.current;
+      // The exact frame playback goes from stopped to playing, tRef.current
+      // can be stale relative to the store's own t — most visibly, toggle()
+      // restarting a finished, non-looping play sets {playing:true, t:0} in
+      // the store, but tRef.current still holds the old end-of-play value
+      // from the last frame it rendered while paused. Without this resync,
+      // the very next frame would add dt to that STALE, already-at-the-end
+      // value, immediately re-trigger "reached the end," and pause again —
+      // so clicking Play a second time silently did nothing. Only matters
+      // on this one transitional frame: every other frame, tRef.current is
+      // already correct (kept in sync with the store while paused, and
+      // advanced from its own last value while playing).
+      const justStartedPlaying = playback.playing && !wasPlayingRef.current;
+      wasPlayingRef.current = playback.playing;
+
+      const prevT = tRef.current;
+      let t = justStartedPlaying ? playback.t : tRef.current;
       if (playback.playing) {
         t += dtSeconds * playback.speed;
         if (t >= schedule.durationS) {
@@ -252,6 +268,11 @@ export function SceneCanvas() {
       }));
       b.setFormation(placements);
       b.setViolationLinks([]);
+      // A discontinuous t (a loop wrap during playback, or a manual scrub
+      // while paused) would otherwise draw a nonsense streak connecting the
+      // trail's last few real positions to wherever the ball jumped to.
+      const jumped = playback.playing ? t < prevT : Math.abs(t - prevT) > 0.15;
+      if (jumped) b.clearBallTrail();
       b.setBallState(world.ball.worldPos, world.ball.visible);
 
       frameCountRef.current++;

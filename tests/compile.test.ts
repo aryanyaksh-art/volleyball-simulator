@@ -120,6 +120,74 @@ describe('compilePlay', () => {
   });
 });
 
+describe('Movement.facing = { atPlayer } — world-space yaw toward another player', () => {
+  it('faces a mover toward a stationary teammate, pinned to the analytical atan2(dx, dz) formula', () => {
+    const play: Play = {
+      id: 'facing-test',
+      name: 'Facing test',
+      schemaVersion: 1,
+      scenario: { lineupIds: { A: 'lineup-A', B: 'lineup-B' }, rotations: { A: 0, B: 0 } },
+      initial: {
+        players: [
+          { who: { side: 'A', kind: 'slot', index: 0 }, pos: { lat: 0, depth: 5 } },
+          { who: { side: 'B', kind: 'slot', index: 0 }, pos: { lat: 4, depth: 0 } },
+        ],
+        ball: { side: 'A', pos: { lat: 0, depth: 9 }, y: 1.2 },
+      },
+      steps: [
+        {
+          id: 'step1',
+          name: 'Step 1',
+          duration: 1.0,
+          movements: [
+            {
+              who: { side: 'A', kind: 'slot', index: 0 },
+              to: { kind: 'local', side: 'A', pos: { lat: 0, depth: 5 } }, // stays put — only the facing target changes
+              facing: { atPlayer: { side: 'B', kind: 'slot', index: 0 } },
+            },
+          ],
+        },
+      ],
+    };
+
+    const schedule = compilePlay(play, ctx);
+    const seg = schedule.playerTracks['A:0'][0];
+    // Mover at world (0,5), target at world (-4,0) (side B negates both axes):
+    // dx=-4, dz=-5, so the expected yaw is the raw atan2 of those, computed
+    // independently of resolveFacingToward's own implementation.
+    expect(seg.facingToRad).toBeCloseTo(Math.atan2(-4, -5), 10);
+  });
+
+  it('falls back to the current facing when the target cannot be resolved', () => {
+    const play: Play = {
+      id: 'facing-fallback-test',
+      name: 'Facing fallback test',
+      schemaVersion: 1,
+      scenario: { lineupIds: { A: 'lineup-A', B: 'lineup-B' }, rotations: { A: 0, B: 0 } },
+      initial: { players: [], ball: { side: 'A', pos: { lat: 0, depth: 9 }, y: 1.2 } },
+      steps: [
+        {
+          id: 'step1',
+          name: 'Step 1',
+          duration: 1.0,
+          movements: [
+            {
+              who: { side: 'A', kind: 'slot', index: 0 },
+              to: { kind: 'local', side: 'A', pos: { lat: 0, depth: 5 } },
+              // ordinal 2 role S doesn't exist on this roster (only one setter) — unresolvable.
+              facing: { atPlayer: { side: 'A', kind: 'role', role: 'S', ordinal: 2 } },
+            },
+          ],
+        },
+      ],
+    };
+
+    const schedule = compilePlay(play, ctx);
+    const seg = schedule.playerTracks['A:0'][0];
+    expect(seg.facingToRad).toBe(Math.PI); // side A's default facing, unchanged
+  });
+});
+
 describe('determinism: playback state is a pure function of t', () => {
   it('produces identical WorldState whether scrubbed directly or reached by stepping through', () => {
     const schedule = compilePlay(buildPlay(), ctx);
