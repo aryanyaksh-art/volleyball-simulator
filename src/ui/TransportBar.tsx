@@ -62,7 +62,7 @@ export function TransportBar() {
     <>
       <div className="control-group">
         <button className="chip chip-active" onClick={toggle}>
-          {playing ? '⏸ Pause' : '▶ Play'}
+          {playing ? 'Pause' : 'Play'}
         </button>
         <input
           type="range"
@@ -98,12 +98,12 @@ export function TransportBar() {
       <div className="control-bar">
         <div className="control-group">
           <button className="chip" onClick={() => setMode('formation')}>
-            ← Back to formation
+            Back to formation
           </button>
           <button className="chip" onClick={saveCurrentPlay} disabled={!editorPlay}>
-            💾 Save play
+            Save play
           </button>
-          {editorPlay && savedPlays[editorPlay.id] && <span className="control-label">saved ✓</span>}
+          {editorPlay && savedPlays[editorPlay.id] && <span className="control-label">(saved)</span>}
         </div>
         {transportControls}
       </div>
@@ -115,7 +115,7 @@ export function TransportBar() {
       <div className="control-bar">
         <div className="control-group">
           <button className="chip" onClick={() => setMode('formation')}>
-            ← Back to formation
+            Back to formation
           </button>
         </div>
       </div>
@@ -127,16 +127,16 @@ export function TransportBar() {
       <div className="control-bar">
         <div className="control-group">
           <button className="chip" onClick={() => setMode('play')}>
-            ▶ Preview demo play
+            Preview demo play
           </button>
           <button className="chip" onClick={startNewPlay}>
-            🏐 Design play
+            Design play
           </button>
           <button className="chip" onClick={() => setMode('serve-receive')}>
-            🎯 Serve-receive
+            Serve-receive
           </button>
           <button className="chip" onClick={() => setMode('matchup')}>
-            ⚔ Matchups
+            Matchups
           </button>
         </div>
       </div>
@@ -150,10 +150,10 @@ export function TransportBar() {
           ← Back to formation
         </button>
         <button className="chip" onClick={editSelectedPlay}>
-          ✎ Edit this play
+          Edit this play
         </button>
         <button className="chip" onClick={togglePresentationMode}>
-          🖥 Present
+          Present
         </button>
       </div>
       <div className="control-group">

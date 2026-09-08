@@ -31,7 +31,7 @@ export function RotationWheel() {
       <div className="panel-title-row">
         <h3 className="panel-title">Rotation</h3>
         <button className="chip" onClick={handleExport} disabled={!sceneCanvasEl || exporting}>
-          {exporting ? 'Exporting…' : '📷 Export sheet'}
+          {exporting ? 'Exporting…' : 'Export sheet'}
         </button>
       </div>
       <div className="rotation-wheel">

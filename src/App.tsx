@@ -41,12 +41,12 @@ function App() {
           {!presentationMode && mode === 'play' && <DiagnosticsPanel />}
           {showAuthorAdvancedToggle && (
             <button className="chip advanced-toggle" onClick={toggleAuthorAdvancedMode}>
-              {authorAdvancedMode ? '⚙ Advanced ✓' : '⚙ Advanced'}
+              {authorAdvancedMode ? 'Advanced (on)' : 'Advanced'}
             </button>
           )}
           {presentationMode && (
             <button className="chip presentation-exit" onClick={togglePresentationMode}>
-              ✕ Exit presentation (Esc)
+              Exit presentation (Esc)
             </button>
           )}
         </div>

@@ -22,10 +22,10 @@ export function TimelineEditor() {
         <h3 className="panel-title">Timeline: {play.name}</h3>
         <div className="control-group">
           <button className="chip" onClick={undo} disabled={!canUndo}>
-            ↶ Undo
+            Undo
           </button>
           <button className="chip" onClick={redo} disabled={!canRedo}>
-            ↷ Redo
+            Redo
           </button>
         </div>
       </div>
@@ -46,7 +46,7 @@ export function TimelineEditor() {
             />
             <div className="timeline-chip-controls">
               <button onClick={(e) => (e.stopPropagation(), moveStep(step.id, -1))} disabled={i === 0} title="Move earlier">
-                ←
+                &lt;
               </button>
               <input
                 className="timeline-chip-duration"
@@ -63,14 +63,14 @@ export function TimelineEditor() {
                 disabled={i === play.steps.length - 1}
                 title="Move later"
               >
-                →
+                &gt;
               </button>
               <button
                 onClick={(e) => (e.stopPropagation(), removeStep(step.id))}
                 disabled={play.steps.length <= 1}
                 title="Remove step"
               >
-                ✕
+                x
               </button>
             </div>
           </div>

@@ -96,8 +96,8 @@ export function StepInspector() {
                     />
                   </td>
                   <td>
-                    <button className="chip" onClick={() => removeBallSegment(step.id)}>
-                      ✕
+                    <button className="chip" onClick={() => removeBallSegment(step.id)} title="Remove ball segment">
+                      x
                     </button>
                   </td>
                 </tr>
@@ -262,8 +262,8 @@ export function StepInspector() {
                         </select>
                       </td>
                       <td>
-                        <button className="chip" onClick={() => removeMovement(step.id, side, p.slot)}>
-                          ✕
+                        <button className="chip" onClick={() => removeMovement(step.id, side, p.slot)} title="Remove movement">
+                          x
                         </button>
                       </td>
                     </tr>
