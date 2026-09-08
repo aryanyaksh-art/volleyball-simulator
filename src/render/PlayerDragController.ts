@@ -89,6 +89,10 @@ export class PlayerDragController {
     }
     if (!closest) return;
 
+    // Stops the browser's own native drag/text-selection gesture from ever
+    // starting on a real mouse press over the canvas, which can otherwise
+    // interrupt the pointermove/pointerup sequence mid-drag.
+    e.preventDefault();
     this.draggingId = closest.id;
     this.params.setOrbitEnabled(false);
     this.params.domElement.setPointerCapture(e.pointerId);

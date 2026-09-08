@@ -42,6 +42,8 @@ export class GuidedPlayController {
   private downAt: { x: number; y: number } | null = null;
   private downId: string | null = null;
   private isDragging = false;
+  /** Whether this gesture hit a player with dragging enabled, so orbit got disabled and the pointer captured right away on pointerdown, before the click-vs-drag threshold resolves — otherwise a real mouse's first few pixels of movement can let OrbitControls start rotating the camera, or let the pointer drift off the canvas, before our own drag logic ever kicks in. */
+  private isPotentialDrag = false;
   private params: GuidedPlayControllerParams;
 
   constructor(params: GuidedPlayControllerParams) {
@@ -91,17 +93,23 @@ export class GuidedPlayController {
     this.downAt = { x: e.clientX, y: e.clientY };
     this.downId = this.hitPlayer(e.clientX, e.clientY);
     this.isDragging = false;
+    this.isPotentialDrag = this.downId != null && this.params.isDragEnabled();
+    if (this.isPotentialDrag) {
+      // Stops the browser's own native drag/text-selection gesture from
+      // ever starting on a real mouse press over the canvas, which can
+      // otherwise interrupt the pointermove/pointerup sequence mid-drag.
+      e.preventDefault();
+      this.params.setOrbitEnabled(false);
+      this.params.domElement.setPointerCapture(e.pointerId);
+    }
   };
 
   private handlePointerMove = (e: PointerEvent): void => {
-    if (!this.downId || !this.downAt) return;
+    if (!this.downId || !this.downAt || !this.isPotentialDrag) return;
     if (!this.isDragging) {
-      if (!this.params.isDragEnabled()) return;
       const movedPx = Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y);
       if (movedPx <= DRAG_THRESHOLD_PX) return;
       this.isDragging = true;
-      this.params.setOrbitEnabled(false);
-      this.params.domElement.setPointerCapture(e.pointerId);
     }
     this.updatePointer(e.clientX, e.clientY);
     const hit = this.floorHit();
@@ -111,13 +119,18 @@ export class GuidedPlayController {
   private handlePointerUp = (e: PointerEvent): void => {
     const downId = this.downId;
     const wasDragging = this.isDragging;
+    const wasPotentialDrag = this.isPotentialDrag;
     this.downId = null;
     this.downAt = null;
     this.isDragging = false;
+    this.isPotentialDrag = false;
 
-    if (wasDragging) {
+    if (wasPotentialDrag) {
       this.params.setOrbitEnabled(true);
       this.params.domElement.releasePointerCapture(e.pointerId);
+    }
+
+    if (wasDragging) {
       if (downId) {
         this.updatePointer(e.clientX, e.clientY);
         const hit = this.floorHit();
