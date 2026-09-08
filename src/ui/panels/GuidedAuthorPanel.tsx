@@ -7,7 +7,6 @@ import {
   describeStep,
   guidedEditFromStep,
   removeGuidedStep,
-  spliceGuidedStepReplacement,
   type SetTarget,
 } from '@/app/guidedAuthoring';
 import type { GuidedAction, GuidedContactAction } from '@/core/play/guidedDefaults';
@@ -78,27 +77,33 @@ export function GuidedAuthorPanel() {
     const replacingStepId = editingStepId;
     if (pendingAction === 'block' || pendingAction === 'dig' || pendingAction === 'move') {
       if (!pendingTarget) return;
-      applyGuidedAction((p) => {
-        const next = commitPositionAction(p, { action: pendingAction, onCourtId: selectedOnCourtId, side, target: pendingTarget });
-        return replacingStepId ? spliceGuidedStepReplacement(p, next, replacingStepId) : next;
-      });
+      applyGuidedAction((p) => commitPositionAction(p, { action: pendingAction, onCourtId: selectedOnCourtId, side, target: pendingTarget }));
     } else {
       if (pendingAction !== 'set' && !pendingTarget) return;
       applyGuidedAction((p) => {
-        const next = commitContactAction(p, {
+        // Editing removes the old step (and cleans up whatever reactive
+        // approach movement it injected into the step before it) *first*,
+        // so commitContactAction's own "previous step" lookup lands on the
+        // real previous step instead of the one being replaced, and re-adds
+        // a fresh reaction rather than a duplicate stale one alongside it.
+        const base = replacingStepId ? removeGuidedStep(p, replacingStepId) : p;
+        return commitContactAction(base, {
           action: pendingAction,
           onCourtId: selectedOnCourtId,
           side,
           target: pendingTarget ?? undefined,
           setTarget,
         });
-        return replacingStepId ? spliceGuidedStepReplacement(p, next, replacingStepId) : next;
       });
     }
     reset();
   };
 
   const editStep = (stepId: string) => {
+    // Only the last step's "previous step" is unambiguous — editing an
+    // earlier one would need to know which later step to re-insert before,
+    // which this simpler remove-then-recommit approach doesn't track.
+    if (stepId !== play.steps[play.steps.length - 1]?.id) return;
     const step = play.steps.find((s) => s.id === stepId);
     if (!step) return;
     const edit = guidedEditFromStep(step);
@@ -218,7 +223,8 @@ export function GuidedAuthorPanel() {
 
       <div className="guided-review">
         {play.steps.map((step) => {
-          const editable = guidedEditFromStep(step) != null;
+          const isLastStep = step.id === play.steps[play.steps.length - 1]?.id;
+          const editable = isLastStep && guidedEditFromStep(step) != null;
           return (
             <div key={step.id} className={editingStepId === step.id ? 'guided-review-row guided-review-row-active' : 'guided-review-row'}>
               <p className="panel-note">{describeStep(step)}</p>

@@ -99,60 +99,124 @@ const resolveIncomingArrival = (previousStep: PlayStep | undefined, forSide: Sid
   return null;
 };
 
-/** Contact height per guided action, meters — mirrors refs.ts's CONTACT_HEIGHT_M so a position expressed directly in local coordinates (see `buildFrom` below) still looks the same as the `atPlayer` resolution it replaces. */
-const CONTACT_HEIGHT_BY_ACTION: Record<GuidedContactAction, number> = {
-  serve: CONTACT_HEIGHT_M.hands,
-  pass: CONTACT_HEIGHT_M.reach,
-  set: CONTACT_HEIGHT_M.hands,
-  attack: CONTACT_HEIGHT_M.reach,
-  tip: CONTACT_HEIGHT_M.reach,
+/** `atPlayer`'s contact kind for each non-serve action — mirrors refs.ts's CONTACT_HEIGHT_M so the reach/hands height matches what the guided defaults were tuned against. */
+const CONTACT_KIND_BY_ACTION: Record<Exclude<GuidedContactAction, 'serve'>, 'hands' | 'reach'> = {
+  pass: 'reach',
+  set: 'hands',
+  attack: 'reach',
+  tip: 'reach',
+};
+
+/**
+ * Scales a jump's timing to an actual movement duration instead of the fixed
+ * numbers `defaults.jump` was authored with (which assumed the old, always-
+ * short hold-movement duration). The peak lands just before the movement
+ * ends — contact happens near the top of the jump, just as the player
+ * finishes arriving — so an attacker jumps *while the set is still in the
+ * air* and hits it at the peak, instead of waiting for the ball to stop
+ * moving first. Returns undefined when there's no jump to scale (every
+ * guided action except attack).
+ */
+const scaledJump = (
+  jump: { atT: number; heightM: number; hangS: number } | undefined,
+  movementDurationS: number,
+): Movement['jump'] => {
+  if (!jump) return undefined;
+  const hangS = Math.min(jump.hangS, Math.max(movementDurationS * 0.6, 0.1));
+  const atT = Math.max(hangS / 2, movementDurationS - hangS / 2);
+  return { atT, heightM: jump.heightM, hangS };
 };
 
 /**
  * Appends a new step for a ball-contact action, closing whatever step was
- * previously open. The acting player's own movement is no longer a
- * self-referencing hold: a serve always starts from behind the endline
- * (never inside the court), and every other contact action walks to wherever
- * the previous step's ball actually lands, so the player visibly meets the
- * ball instead of standing frozen at their starting zone while it arrives
- * somewhere else.
+ * previously open.
  *
- * The ball's own `from` has to move with them: compile.ts resolves an
- * `atPlayer` ref against the snapshot from the START of this step, before
- * this step's own movement has applied — so if the player is walking
- * somewhere new this step, `atPlayer` would still describe the ball
- * departing from their OLD spot. Once we know where they're walking to, the
- * ball's `from` is given that same explicit local position instead, at the
- * usual contact height for the action. Only when there's nothing to walk to
- * yet (the play's very first step) does either fall back to a plain hold —
- * `atPlayer` is then correct, since the player truly isn't moving.
+ * A serve has nothing to react to — it starts the rally — so it keeps the
+ * simple sequential shape: walk to the service line (never inside the
+ * court), then serve, both within its own new step, the ball's flight
+ * offset to start only once the walk finishes (contact can't happen before
+ * the player gets there).
+ *
+ * Every other contact action reacts to an incoming ball instead: the walk to
+ * the arrival spot is injected as an *additional* movement into the
+ * PREVIOUS step (the one whose ball is what's incoming), timed to start
+ * exactly when that ball is launched and end exactly when it lands —
+ * matching the ball's own flight, not a moment before or after. This is
+ * what lets several players move at once (e.g. a libero passing while the
+ * setter is already moving into position for the set that follows) instead
+ * of queuing up one at a time, and it's why a hitter now jumps while the
+ * set is still in flight (see `scaledJump`) rather than standing still
+ * until it lands. The new step itself then needs no movement of its own for
+ * the actor — they already arrived — so its ball starts immediately at
+ * `atPlayer`, which compile.ts resolves against this step's start-of-step
+ * snapshot: correct precisely because the actor isn't moving THIS step.
+ * Falls back to the old self-contained (hold, then contact) shape only when
+ * there's nothing incoming yet — the play's very first ball touch.
  */
 export const commitContactAction = (play: Play, params: CommitContactParams): Play => {
   const who = onCourtIdToPlayerRef(params.onCourtId);
   const defaults = GUIDED_CONTACT_DEFAULTS[params.action];
+
+  if (params.action === 'serve') {
+    const movement = moveMovement(who, params.side, SERVE_READY_TARGET, defaults.movementMode, defaults.pose, defaults.movementDurationS, defaults.jump);
+    const from: BallSegment['from'] = {
+      kind: 'local',
+      side: params.side,
+      pos: { lat: SERVE_READY_TARGET.lat, depth: SERVE_READY_TARGET.depth },
+      y: CONTACT_HEIGHT_M.hands,
+    };
+    const contactAtS = movement.duration ?? 0;
+    if (!params.target) throw new Error('commitContactAction: "serve" requires target');
+    const apexM = params.target.apexM ?? defaults.apexM;
+    const ball: BallSegment = {
+      kind: 'serve',
+      profile: defaults.profile,
+      from,
+      to: { kind: 'local', side: params.side, pos: { lat: params.target.lat, depth: params.target.depth }, y: params.target.y ?? 0 },
+      apexM,
+      apexU: defaults.apexU,
+      duration: defaults.ballDurationS,
+      startOffset: contactAtS,
+    };
+    const step: PlayStep = {
+      id: crypto.randomUUID(),
+      name: 'Serve',
+      duration: params.stepDurationS ?? contactAtS + (ball.duration ?? 1),
+      ball,
+      movements: [movement],
+    };
+    return { ...play, steps: [...play.steps, step] };
+  }
+
   const previousStep = play.steps[play.steps.length - 1];
-  const contactHeight = CONTACT_HEIGHT_BY_ACTION[params.action];
+  const arrival = resolveIncomingArrival(previousStep, params.side);
+  const contactKind = CONTACT_KIND_BY_ACTION[params.action];
 
-  const walkTo = params.action === 'serve' ? SERVE_READY_TARGET : resolveIncomingArrival(previousStep, params.side);
+  let steps = play.steps;
+  let ownMovement: Movement | undefined;
 
-  const movement = walkTo
-    ? moveMovement(who, params.side, walkTo, defaults.movementMode, defaults.pose, defaults.movementDurationS, defaults.jump)
-    : holdMovement(who, defaults.pose, defaults.movementMode, defaults.movementDurationS, defaults.jump);
+  if (arrival && previousStep?.ball) {
+    const reactDurationS = previousStep.ball.duration ?? previousStep.duration;
+    const approach = moveMovement(
+      who,
+      params.side,
+      arrival,
+      defaults.movementMode,
+      defaults.pose,
+      reactDurationS,
+      scaledJump(defaults.jump, reactDurationS),
+    );
+    approach.startOffset = previousStep.ball.startOffset ?? 0;
+    steps = play.steps.map((s, i) => (i === play.steps.length - 1 ? { ...s, movements: [...s.movements, approach] } : s));
+  } else {
+    // Nothing incoming yet (the play's first ball touch) — no arrival to
+    // react to, so this contact stays self-contained: a brief wind-up hold,
+    // then contact, both within this one new step.
+    ownMovement = holdMovement(who, defaults.pose, defaults.movementMode, defaults.movementDurationS, defaults.jump);
+  }
 
-  const from: BallSegment['from'] = walkTo
-    ? { kind: 'local', side: params.side, pos: { lat: walkTo.lat, depth: walkTo.depth }, y: contactHeight }
-    : { kind: 'atPlayer', who, contact: params.action === 'serve' ? 'hands' : 'reach' };
-
-  // The ball can't leave a player's hands before the player gets there: the
-  // walk/approach and the flight are sequential, not simultaneous, so the
-  // ball segment is offset to start right as the movement finishes. Getting
-  // this wrong (both starting at the step's t=0, which is what a first pass
-  // at this looked like) makes the ball visibly take off mid-walk, then, once
-  // its own short flight duration elapses long before the movement does,
-  // just sit at the landing spot for the remainder of the step while the
-  // player is still approaching — the "ball lags, then teleports, then comes
-  // back" bug this was written to fix.
-  const contactAtS = movement.duration ?? 0;
+  const from: BallSegment['from'] = { kind: 'atPlayer', who, contact: contactKind };
+  const contactAtS = ownMovement?.duration ?? 0;
 
   let ball: BallSegment;
 
@@ -184,20 +248,15 @@ export const commitContactAction = (play: Play, params: CommitContactParams): Pl
     };
   }
 
-  // The step has to last at least as long as the movement plus the ball's
-  // own flight, now that the two run one after the other instead of
-  // overlapping — otherwise the ball's track segment (which starts at
-  // contactAtS, not 0) would still run past the step boundary compile.ts
-  // advances by.
   const step: PlayStep = {
     id: crypto.randomUUID(),
     name: params.action[0].toUpperCase() + params.action.slice(1),
     duration: params.stepDurationS ?? contactAtS + (ball.duration ?? 1),
     ball,
-    movements: [movement],
+    movements: ownMovement ? [ownMovement] : [],
   };
 
-  return { ...play, steps: [...play.steps, step] };
+  return { ...play, steps: [...steps, step] };
 };
 
 // Note for whoever runs Task 8's manual/browser check (Task 12, Step 7):
@@ -248,21 +307,35 @@ export const guidedDoneOnCourtIds = (play: Play): Set<string> => {
   return done;
 };
 
-/** Drops one step from the guided Review list entirely (the "minus" case). */
-export const removeGuidedStep = (play: Play, stepId: string): Play => ({
-  ...play,
-  steps: play.steps.filter((s) => s.id !== stepId),
-});
+const playerRefEquals = (a: PlayerRef, b: PlayerRef): boolean =>
+  a.kind === 'slot' && b.kind === 'slot' && a.side === b.side && a.index === b.index;
 
-/** After re-authoring a step via the guided flow's normal commit path (which always appends), puts the freshly appended step back at the position the one it replaces used to occupy, instead of leaving it at the end. */
-export const spliceGuidedStepReplacement = (before: Play, after: Play, replacedStepId: string): Play => {
-  const oldIndex = before.steps.findIndex((s) => s.id === replacedStepId);
-  const newStep = after.steps[after.steps.length - 1];
-  const rest = after.steps.filter((s) => s.id !== replacedStepId && s.id !== newStep.id);
-  const insertAt = Math.min(oldIndex === -1 ? rest.length : oldIndex, rest.length);
-  const steps = [...rest];
-  steps.splice(insertAt, 0, newStep);
-  return { ...after, steps };
+/** Whoever this step's own ball contact belongs to — from `ball.from` when it's an atPlayer reference (the normal case now: the actor already arrived during the previous step, so they have no movement of their own here), falling back to this step's own single movement for the older self-contained shape (the play's first-ever ball touch). Not the same as "whoever has a movement in this step" — that array may also hold a *different* player's reactive approach for whatever comes next. */
+const contactActorOf = (step: PlayStep): PlayerRef | null => {
+  if (step.ball?.from.kind === 'atPlayer') return step.ball.from.who;
+  return step.movements.length === 1 ? step.movements[0].who : null;
+};
+
+/**
+ * Drops one step from the guided Review list entirely (the "minus" case).
+ * Also strips that step's own contact actor out of the *previous* step's
+ * movements, if a reactive approach was injected there for them (see
+ * commitContactAction) — otherwise removing a step would leave that player
+ * still walking toward a target that no longer has a corresponding action,
+ * a harmless but confusing orphan.
+ */
+export const removeGuidedStep = (play: Play, stepId: string): Play => {
+  const index = play.steps.findIndex((s) => s.id === stepId);
+  if (index === -1) return play;
+  const actor = contactActorOf(play.steps[index]);
+  const withoutStep = play.steps.filter((s) => s.id !== stepId);
+  if (!actor || index === 0) return { ...play, steps: withoutStep };
+
+  const previousId = play.steps[index - 1].id;
+  const steps = withoutStep.map((s) =>
+    s.id === previousId ? { ...s, movements: s.movements.filter((m) => !playerRefEquals(m.who, actor)) } : s,
+  );
+  return { ...play, steps };
 };
 
 export interface GuidedStepEdit {
@@ -274,19 +347,23 @@ export interface GuidedStepEdit {
 }
 
 /**
- * Reverses commitContactAction for the common case (exactly one movement, a
- * ball segment whose kind is one of the five guided contact actions) so
- * "Edit" can reopen a step with its choices pre-filled instead of starting
- * over. Returns null for anything the guided flow itself wouldn't have
- * produced this way — a step with no ball (a bare position action) or one
- * bundling more than one movement (a position action appended onto an
- * existing step) — those are removable but not guided-editable.
+ * Reverses commitContactAction so "Edit" can reopen a step with its choices
+ * pre-filled instead of starting over. The acting player comes from
+ * `contactActorOf` (usually `ball.from`'s atPlayer reference now, since they
+ * no longer have a movement of their own in this same step — see
+ * commitContactAction) rather than assuming this step's one-and-only
+ * movement belongs to them, since this step's movements array may instead
+ * (or additionally) hold a *different* player's reactive approach for
+ * whatever comes next. Returns null for anything the guided flow itself
+ * wouldn't have produced this way — a step with no ball (a bare position
+ * action), an unrecognized ball kind, or one whose actor can't be
+ * determined — those are removable but not guided-editable.
  */
 export const guidedEditFromStep = (step: PlayStep): GuidedStepEdit | null => {
-  if (!step.ball || step.movements.length !== 1) return null;
+  if (!step.ball) return null;
   if (!GUIDED_CONTACT_BALL_KINDS.has(step.ball.kind)) return null;
-  const who = step.movements[0].who;
-  if (who.kind !== 'slot') return null;
+  const who = contactActorOf(step);
+  if (!who || who.kind !== 'slot') return null;
   const onCourtId = `${who.side}:${who.index}`;
   const action = step.ball.kind as GuidedContactAction;
 
