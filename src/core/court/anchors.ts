@@ -25,6 +25,20 @@ export const SETTER_TARGET: Readonly<LocalPos> = { lat: 1.5, depth: 2.0 };
 export const effectivePosition = (zone: ZoneNumber, overrides?: Partial<Record<ZoneNumber, LocalPos>>): LocalPos =>
   overrides?.[zone] ?? ZONE_BASE[zone];
 
+/** The zone whose default anchor is closest to `local` — used for drop-target resolution (BenchDragController) and for Alt-snap while dragging a player (PlayerDragController). Always the plain ZONE_BASE anchors, not a formation's own overrides: this answers "which zone is this near," not "which zone is a specific team's player standing in." */
+export const nearestZone = (local: LocalPos): ZoneNumber => {
+  let closest: ZoneNumber = 1;
+  let closestDist = Infinity;
+  for (const [zoneStr, pos] of Object.entries(ZONE_BASE)) {
+    const d = Math.hypot(pos.lat - local.lat, pos.depth - local.depth);
+    if (d < closestDist) {
+      closestDist = d;
+      closest = Number(zoneStr) as ZoneNumber;
+    }
+  }
+  return closest;
+};
+
 const BENCH_SPACING_M = 1.0;
 const BENCH_DEPTH_M = 10.5;
 

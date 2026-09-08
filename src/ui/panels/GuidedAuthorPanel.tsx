@@ -7,6 +7,7 @@ import {
   describeStep,
   guidedEditFromStep,
   removeGuidedStep,
+  replaceGuidedStep,
   type SetTarget,
 } from '@/app/guidedAuthoring';
 import type { GuidedAction, GuidedContactAction } from '@/core/play/guidedDefaults';
@@ -26,7 +27,6 @@ const POSITION_ACTIONS: GuidedAction[] = ['block', 'dig', 'move'];
 const isContactAction = (action: GuidedAction): action is GuidedContactAction => (CONTACT_ACTIONS as GuidedAction[]).includes(action);
 const HITTER_ROLES: HitterRole[] = ['OH', 'MB', 'RS', 'pipe'];
 const SET_CALLS = Object.keys(SET_TEMPO_S) as SetCall[];
-const SIDES: Side[] = ['A', 'B'];
 
 /** "A:1" -> "#3 Outside 1" style label, falling back to the raw id if the roster/lineup lookup comes up empty (e.g. a slot with no one assigned). */
 function playerLabel(onCourtId: string, rosters: ReturnType<typeof useLineupStore.getState>['rosters'], lineups: ReturnType<typeof useLineupStore.getState>['lineups'], rotations: ReturnType<typeof useLineupStore.getState>['rotations']): string {
@@ -50,25 +50,13 @@ export function GuidedAuthorPanel() {
   const pendingAction = useGuidedAuthorStore((s) => s.pendingAction);
   const pendingTarget = useGuidedAuthorStore((s) => s.pendingTarget);
   const editingStepId = useGuidedAuthorStore((s) => s.editingStepId);
-  const pendingBenchSwap = useGuidedAuthorStore((s) => s.pendingBenchSwap);
+  const emptySlotHint = useGuidedAuthorStore((s) => s.emptySlotHint);
   const choosePendingAction = useGuidedAuthorStore((s) => s.choosePendingAction);
   const setPendingTarget = useGuidedAuthorStore((s) => s.setPendingTarget);
   const startEditingStep = useGuidedAuthorStore((s) => s.startEditingStep);
-  const toggleBenchSwap = useGuidedAuthorStore((s) => s.toggleBenchSwap);
   const reset = useGuidedAuthorStore((s) => s.reset);
 
   const side = useMemo(() => (selectedOnCourtId ? (selectedOnCourtId.split(':')[0] as Side) : null), [selectedOnCourtId]);
-
-  // Liberos are left off, same rule BenchPanel uses: they swap in automatically
-  // via the lineup's rotation-driven assignment, never manually benched.
-  const benchBySide = useMemo(() => {
-    const out: Record<Side, { id: string; number: number; name: string }[]> = { A: [], B: [] };
-    for (const s of SIDES) {
-      const onCourtIds = new Set(lineups[s].order.filter((id): id is string => id != null));
-      out[s] = rosters[s].players.filter((p) => p.primaryRole !== 'L' && !onCourtIds.has(p.id));
-    }
-    return out;
-  }, [rosters, lineups]);
 
   if (!play) return null;
 
@@ -80,30 +68,28 @@ export function GuidedAuthorPanel() {
       applyGuidedAction((p) => commitPositionAction(p, { action: pendingAction, onCourtId: selectedOnCourtId, side, target: pendingTarget }));
     } else {
       if (pendingAction !== 'set' && !pendingTarget) return;
-      applyGuidedAction((p) => {
-        // Editing removes the old step (and cleans up whatever reactive
-        // approach movement it injected into the step before it) *first*,
-        // so commitContactAction's own "previous step" lookup lands on the
-        // real previous step instead of the one being replaced, and re-adds
-        // a fresh reaction rather than a duplicate stale one alongside it.
-        const base = replacingStepId ? removeGuidedStep(p, replacingStepId) : p;
-        return commitContactAction(base, {
-          action: pendingAction,
-          onCourtId: selectedOnCourtId,
-          side,
-          target: pendingTarget ?? undefined,
-          setTarget,
-        });
-      });
+      applyGuidedAction((p) =>
+        replacingStepId
+          ? replaceGuidedStep(p, replacingStepId, {
+              action: pendingAction,
+              onCourtId: selectedOnCourtId,
+              side,
+              target: pendingTarget ?? undefined,
+              setTarget,
+            })
+          : commitContactAction(p, {
+              action: pendingAction,
+              onCourtId: selectedOnCourtId,
+              side,
+              target: pendingTarget ?? undefined,
+              setTarget,
+            }),
+      );
     }
     reset();
   };
 
   const editStep = (stepId: string) => {
-    // Only the last step's "previous step" is unambiguous — editing an
-    // earlier one would need to know which later step to re-insert before,
-    // which this simpler remove-then-recommit approach doesn't track.
-    if (stepId !== play.steps[play.steps.length - 1]?.id) return;
     const step = play.steps.find((s) => s.id === stepId);
     if (!step) return;
     const edit = guidedEditFromStep(step);
@@ -125,12 +111,9 @@ export function GuidedAuthorPanel() {
           {editingStepId ? 'Editing' : 'Selected'}: {playerLabel(selectedOnCourtId, rosters, lineups, rotations)}
         </p>
       )}
-      {!selectedOnCourtId && !pendingBenchSwap && <p className="panel-note">Click a player in the 3D view to choose their action.</p>}
-      {pendingBenchSwap && (
-        <p className="panel-note">
-          Click an on-court side {pendingBenchSwap.side} player to bring on{' '}
-          {findPlayer(rosters[pendingBenchSwap.side], pendingBenchSwap.playerId)?.name ?? 'this player'}.
-        </p>
+      {!selectedOnCourtId && <p className="panel-note">Click a player in the 3D view to choose their action.</p>}
+      {!selectedOnCourtId && emptySlotHint != null && (
+        <p className="panel-note">No player in zone {emptySlotHint} — bring one on from the bench overlay on the court.</p>
       )}
 
       {selectedOnCourtId && !pendingAction && (
@@ -184,30 +167,6 @@ export function GuidedAuthorPanel() {
 
       <hr className="guided-divider" />
 
-      <div className="guided-bench">
-        <h4 className="panel-subtitle">Bench</h4>
-        {SIDES.map((s) => (
-          <div key={s} className="control-group">
-            <span className="control-label">{s}</span>
-            {benchBySide[s].length === 0 ? (
-              <span className="panel-note">Everyone's on the court.</span>
-            ) : (
-              benchBySide[s].map((p) => (
-                <button
-                  key={p.id}
-                  className={pendingBenchSwap?.playerId === p.id ? 'chip chip-small chip-active' : 'chip chip-small'}
-                  onClick={() => toggleBenchSwap({ side: s, playerId: p.id })}
-                >
-                  #{p.number} {p.name}
-                </button>
-              ))
-            )}
-          </div>
-        ))}
-      </div>
-
-      <hr className="guided-divider" />
-
       <div className="control-group">
         <button
           className="chip"
@@ -223,8 +182,7 @@ export function GuidedAuthorPanel() {
 
       <div className="guided-review">
         {play.steps.map((step) => {
-          const isLastStep = step.id === play.steps[play.steps.length - 1]?.id;
-          const editable = isLastStep && guidedEditFromStep(step) != null;
+          const editable = guidedEditFromStep(step) != null;
           return (
             <div key={step.id} className={editingStepId === step.id ? 'guided-review-row guided-review-row-active' : 'guided-review-row'}>
               <p className="panel-note">{describeStep(step)}</p>
@@ -251,14 +209,11 @@ export function GuidedAuthorPanel() {
   );
 }
 
-// TODO(follow-up): pendingTarget is being overloaded to carry {role, tempo} for
-// the 'set' action's two-choice flow. Works, but a dedicated pendingSetTarget
-// field on useGuidedAuthorStore would be cleaner. See plan Task 12.
 function SetChooser({ onConfirm, onCancel }: { onConfirm: (setTarget: SetTarget) => void; onCancel: () => void }) {
-  const pendingTarget = useGuidedAuthorStore((s) => s.pendingTarget);
-  const setPendingTarget = useGuidedAuthorStore((s) => s.setPendingTarget);
-  const role = (pendingTarget as unknown as { role?: HitterRole })?.role ?? null;
-  const tempo = (pendingTarget as unknown as { tempo?: SetCall })?.tempo ?? null;
+  const pendingSetTarget = useGuidedAuthorStore((s) => s.pendingSetTarget);
+  const setPendingSetTarget = useGuidedAuthorStore((s) => s.setPendingSetTarget);
+  const role = pendingSetTarget?.role ?? null;
+  const tempo = pendingSetTarget?.tempo ?? null;
 
   return (
     <div className="control-group">
@@ -267,7 +222,7 @@ function SetChooser({ onConfirm, onCancel }: { onConfirm: (setTarget: SetTarget)
         <button
           key={r}
           className={role === r ? 'chip chip-active' : 'chip'}
-          onClick={() => setPendingTarget({ lat: 0, depth: 0, ...(pendingTarget ?? {}), role: r } as never)}
+          onClick={() => setPendingSetTarget({ ...(pendingSetTarget ?? {}), role: r })}
         >
           {r}
         </button>
@@ -277,7 +232,7 @@ function SetChooser({ onConfirm, onCancel }: { onConfirm: (setTarget: SetTarget)
         <button
           key={call}
           className={tempo === call ? 'chip chip-active' : 'chip'}
-          onClick={() => setPendingTarget({ lat: 0, depth: 0, ...(pendingTarget ?? {}), tempo: call } as never)}
+          onClick={() => setPendingSetTarget({ ...(pendingSetTarget ?? {}), tempo: call })}
         >
           {call}
         </button>

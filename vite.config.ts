@@ -12,5 +12,7 @@ export default defineConfig({
   },
   server: {
     host: true, // reachable from a tablet on the same network at practice
+    port: Number(process.env.PORT) || 5173,
+    strictPort: false,
   },
 });

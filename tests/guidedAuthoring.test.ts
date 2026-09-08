@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commitContactAction, commitPositionAction, describeStep } from '@/app/guidedAuthoring';
+import { commitContactAction, commitPositionAction, describeStep, guidedEditFromStep, replaceGuidedStep } from '@/app/guidedAuthoring';
 import type { Play } from '@/core/play/types';
 
 const blankPlay = (): Play => ({
@@ -148,6 +148,64 @@ describe('commitContactAction — walking to the ball instead of standing still'
   it('falls back to holding position for the very first ball touch (nothing incoming yet)', () => {
     const play = commitContactAction(blankPlay(), { action: 'pass', onCourtId: 'B:5', side: 'B', target: { lat: 1.5, depth: 2.0 } });
     expect(play.steps[0].movements[0].to).toEqual({ kind: 'atPlayer', who: { side: 'B', kind: 'slot', index: 5 }, contact: 'feet' });
+  });
+});
+
+describe('guidedEditFromStep — a serve step with a reactor appended', () => {
+  it('is still recognized as editable once something reacts to it (regression: contactActorOf used to require exactly one movement)', () => {
+    let play = commitContactAction(blankPlay(), { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0, depth: -6.6 } });
+    // The pass's own commit injects the passer's reactive approach into the
+    // serve step above — the serve step's movements array now holds TWO
+    // entries (the server's own walk, then the passer's approach), which
+    // used to defeat contactActorOf's `movements.length === 1` check.
+    play = commitContactAction(play, { action: 'pass', onCourtId: 'B:5', side: 'B', target: { lat: 1.5, depth: 2.0 } });
+
+    const serveStep = play.steps[0];
+    expect(serveStep.movements).toHaveLength(2);
+    const edit = guidedEditFromStep(serveStep);
+    expect(edit).not.toBeNull();
+    expect(edit).toMatchObject({ onCourtId: 'A:1', side: 'A', action: 'serve' });
+  });
+});
+
+describe('replaceGuidedStep — editing a non-last step', () => {
+  it("re-derives every step after the edited one, not just the one being replaced", () => {
+    let play = commitContactAction(blankPlay(), { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0, depth: -6.6 } });
+    play = commitContactAction(play, { action: 'pass', onCourtId: 'B:5', side: 'B', target: { lat: 1.5, depth: 2.0 } });
+    play = commitContactAction(play, { action: 'set', onCourtId: 'B:0', side: 'B', setTarget: { role: 'OH', tempo: '31' } });
+    play = commitContactAction(play, { action: 'attack', onCourtId: 'B:1', side: 'B', target: { lat: -3, depth: -1 } });
+    expect(play.steps).toHaveLength(4);
+
+    const passStepId = play.steps[1].id;
+    const edited = replaceGuidedStep(play, passStepId, {
+      action: 'pass',
+      onCourtId: 'B:5',
+      side: 'B',
+      target: { lat: -1.0, depth: 3.5 },
+    });
+
+    expect(edited.steps).toHaveLength(4);
+    const newPassStep = edited.steps[1];
+    expect(newPassStep.ball!.to).toMatchObject({ kind: 'local', side: 'B', pos: { lat: -1.0, depth: 3.5 } });
+
+    // The setter's reactive approach (injected into the pass step) now
+    // targets the NEW pass landing spot, not the old one — both are side B,
+    // so the local-frame round trip is the identity, no sign flip.
+    const setterApproach = newPassStep.movements.find((m) => m.who.kind === 'slot' && m.who.side === 'B' && m.who.index === 0);
+    expect(setterApproach).toBeDefined();
+    if (setterApproach!.to.kind !== 'local') throw new Error('expected a local target');
+    expect(setterApproach!.to.pos.lat).toBeCloseTo(-1.0);
+    expect(setterApproach!.to.pos.depth).toBeCloseTo(3.5);
+
+    // Everything downstream of the edit survives the replay, in order.
+    expect(edited.steps[2].ball?.kind).toBe('set');
+    expect(edited.steps[3].ball?.kind).toBe('attack');
+  });
+
+  it('returns the play unchanged if the stepId does not exist', () => {
+    const play = commitContactAction(blankPlay(), { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0, depth: -6.6 } });
+    const result = replaceGuidedStep(play, 'nonexistent', { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0, depth: -6.6 } });
+    expect(result).toBe(play);
   });
 });
 

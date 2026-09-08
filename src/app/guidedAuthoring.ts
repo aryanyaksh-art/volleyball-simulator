@@ -299,10 +299,28 @@ export const commitPositionAction = (play: Play, params: CommitPositionParams): 
 const playerRefEquals = (a: PlayerRef, b: PlayerRef): boolean =>
   a.kind === 'slot' && b.kind === 'slot' && a.side === b.side && a.index === b.index;
 
-/** Whoever this step's own ball contact belongs to — from `ball.from` when it's an atPlayer reference (the normal case now: the actor already arrived during the previous step, so they have no movement of their own here), falling back to this step's own single movement for the older self-contained shape (the play's first-ever ball touch). Not the same as "whoever has a movement in this step" — that array may also hold a *different* player's reactive approach for whatever comes next. */
+/**
+ * Whoever this step's own ball contact belongs to — from `ball.from` when
+ * it's an atPlayer reference (the normal case now: the actor already
+ * arrived during the previous step, so they have no movement of their own
+ * here), falling back to this step's own FIRST movement for the
+ * self-contained shape (a serve, or the play's first-ever ball touch,
+ * neither of which resolve `ball.from` via atPlayer). The first movement is
+ * reliable, not just the only one: `commitContactAction` always pushes the
+ * actor's own movement as `movements[0]` at the moment this step is
+ * created, and any later step's reactive approach for what comes NEXT is
+ * only ever *appended* after that (see the "concurrent movement" doc
+ * comment on `commitContactAction`) — so `movements.length === 1` was
+ * actually wrong the instant a reactor got appended (i.e. almost always,
+ * since something reacts to nearly every serve), silently hiding a serve
+ * step from Edit/description lookups. Not the same as "whoever has a
+ * movement in this step" in general — the array may ALSO hold a *different*
+ * player's reactive approach for whatever comes next, which is exactly what
+ * the length check used to trip over.
+ */
 const contactActorOf = (step: PlayStep): PlayerRef | null => {
   if (step.ball?.from.kind === 'atPlayer') return step.ball.from.who;
-  return step.movements.length === 1 ? step.movements[0].who : null;
+  return step.movements[0]?.who ?? null;
 };
 
 /**
@@ -325,6 +343,67 @@ export const removeGuidedStep = (play: Play, stepId: string): Play => {
     s.id === previousId ? { ...s, movements: s.movements.filter((m) => !playerRefEquals(m.who, actor)) } : s,
   );
   return { ...play, steps };
+};
+
+export interface GuidedStepReplacement {
+  action: GuidedContactAction;
+  onCourtId: string;
+  side: Side;
+  target?: GuidedTarget;
+  setTarget?: SetTarget;
+}
+
+/**
+ * Re-authors an existing step in place, not just the play's last one.
+ * `removeGuidedStep` already strips the reactive-approach movement the
+ * target step injected into its predecessor; this goes further by also
+ * truncating everything *after* it, recommitting the edited step fresh
+ * (via commitContactAction, against just the untouched prefix — which
+ * lands it back at the right index automatically, since commitContactAction
+ * always appends to whatever play it's given), then replaying each
+ * following step's own choice through the same commit path in order. That
+ * replay matters: a later step's "walk to the incoming ball" target
+ * (resolveIncomingArrival) depends on the step before it, so if the edited
+ * step's ball target changed, everything downstream needs to re-resolve
+ * against the new version, not the old one. A tail step whose shape
+ * guidedEditFromStep can't describe (a bare position action — block/dig/
+ * move) is carried forward unchanged rather than dropped: its own targets
+ * may end up very slightly stale relative to the edit above it, the same
+ * limitation non-contact steps already had before per-step editing existed
+ * at all, but no step is ever silently lost.
+ */
+export const replaceGuidedStep = (play: Play, stepId: string, replacement: GuidedStepReplacement): Play => {
+  const index = play.steps.findIndex((s) => s.id === stepId);
+  if (index === -1) return play;
+
+  const withoutStep = removeGuidedStep(play, stepId);
+  const tail = withoutStep.steps.slice(index);
+  const tailEdits = tail.map((s) => guidedEditFromStep(s));
+
+  let working: Play = { ...withoutStep, steps: withoutStep.steps.slice(0, index) };
+  working = commitContactAction(working, {
+    action: replacement.action,
+    onCourtId: replacement.onCourtId,
+    side: replacement.side,
+    target: replacement.target,
+    setTarget: replacement.setTarget,
+  });
+
+  tailEdits.forEach((edit, i) => {
+    if (edit) {
+      working = commitContactAction(working, {
+        action: edit.action,
+        onCourtId: edit.onCourtId,
+        side: edit.side,
+        target: edit.target,
+        setTarget: edit.setTarget,
+      });
+    } else {
+      working = { ...working, steps: [...working.steps, tail[i]] };
+    }
+  });
+
+  return working;
 };
 
 export interface GuidedStepEdit {

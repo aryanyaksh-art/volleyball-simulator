@@ -79,12 +79,12 @@ export function TopDownTargetPicker({ lat, depth, onChange }: TopDownTargetPicke
         onPointerMove={handlePointerMove}
         className="topdown-svg"
       >
-        {/* Opponent's half — above the net line, for a serve's landing target. */}
+        {/* Opponent's half — above the net line, for a serve's landing target. yFor increases with depth, and the opponent's far endline sits at the most-negative depth (DEPTH_MIN), so the rect has to start there and extend down to the net line — not the other way around, which produces a negative SVG height (silently invalid, so the browser just doesn't paint it). */}
         <rect
           x={xFor(LAT_MIN)}
-          y={yFor(0)}
+          y={yFor(-HALF)}
           width={xFor(LAT_MAX) - xFor(LAT_MIN)}
-          height={yFor(-HALF) - yFor(0)}
+          height={yFor(0) - yFor(-HALF)}
           className="topdown-court-opponent"
         />
         {/* Own half. */}

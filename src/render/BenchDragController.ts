@@ -3,7 +3,7 @@ import type { Side } from '@/core/court/coordinates';
 import { toLocal } from '@/core/court/coordinates';
 import { DEFAULT_COURT_SPEC } from '@/core/court/courtSpec';
 import type { ZoneNumber } from '@/core/court/zones';
-import { ZONE_BASE } from '@/core/court/anchors';
+import { nearestZone } from '@/core/court/anchors';
 
 export interface BenchDraggableRoot {
   /** `"bench:<side>:<playerId>"` for a bench player, or `"<side>:<zone>"` for an on-court player — the same id scheme formation mode already places players under. */
@@ -31,16 +31,7 @@ export function resolveDropTarget(hit: THREE.Vector3): BenchDropTarget {
   if (local.depth > DEFAULT_COURT_SPEC.halfLengthM) return { kind: 'bench', side };
   if (local.depth < 0) return null;
 
-  let closestZone: ZoneNumber | null = null;
-  let closestDist = Infinity;
-  for (const [zoneStr, pos] of Object.entries(ZONE_BASE)) {
-    const d = Math.hypot(pos.lat - local.lat, pos.depth - local.depth);
-    if (d < closestDist) {
-      closestDist = d;
-      closestZone = Number(zoneStr) as ZoneNumber;
-    }
-  }
-  return closestZone ? { kind: 'zone', side, zone: closestZone } : null;
+  return { kind: 'zone', side, zone: nearestZone(local) };
 }
 
 /**

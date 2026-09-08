@@ -9,7 +9,7 @@ import { deriveMatchupState } from '@/app/deriveMatchupState';
 import { defensiveBase } from '@/core/tactics/defense.presets';
 import type { Play } from '@/core/play/types';
 import { deriveRotationState, effectivePosition } from '@/app/deriveRotationState';
-import { benchSlotPosition } from '@/core/court/anchors';
+import { benchSlotPosition, nearestZone } from '@/core/court/anchors';
 import { SceneRenderer } from '@/render/SceneRenderer';
 import { SceneBridge, type PlayerPlacement } from '@/render/SceneBridge';
 import type { ViolationLink } from '@/render/overlays/ViolationOverlay';
@@ -352,14 +352,6 @@ export function SceneCanvas() {
       },
       onSelectPlayer: (id) => {
         const guided = useGuidedAuthorStore.getState();
-        const swap = guided.pendingBenchSwap;
-        if (swap) {
-          const [clickedSide, slotStr] = id.split(':') as [Side, string];
-          if (clickedSide !== swap.side) return; // wrong team's court — wait for a same-side click
-          useLineupStore.getState().setOrderSlot(swap.side, Number(slotStr), swap.playerId);
-          guided.reset();
-          return;
-        }
         // Clicking the already-selected player again deselects them, but only
         // before an action's been chosen — once a target/height picker is up,
         // a re-click should behave like any other player click (reselect),
@@ -372,7 +364,19 @@ export function SceneCanvas() {
       },
       onSelectFloor: (worldPos) => {
         const guided = useGuidedAuthorStore.getState();
-        if (!guided.selectedOnCourtId) return;
+        if (!guided.selectedOnCourtId) {
+          // Nothing selected yet — a click near an empty zone is otherwise a
+          // silent no-op, so surface which zone (if any) it landed near and
+          // whether anyone's actually standing there.
+          const side: Side = worldPos.z >= 0 ? 'A' : 'B';
+          const local = toLocal({ x: worldPos.x, y: 0, z: worldPos.z }, side);
+          const zone = nearestZone(local);
+          const lineupState = useLineupStore.getState();
+          const b = breakdown(lineupState.lineups[side], lineupState.rosters[side], side, lineupState.rotations[side]);
+          const occupied = b.onCourt.some((p) => p.zone === zone);
+          guided.setEmptySlotHint(occupied ? null : zone);
+          return;
+        }
         if (!guided.pendingAction) {
           // A player's selected but no action chosen yet — clicking open
           // floor is unambiguous (there's nothing else it could mean here),
