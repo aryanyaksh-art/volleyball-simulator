@@ -143,6 +143,17 @@ export const commitContactAction = (play: Play, params: CommitContactParams): Pl
     ? { kind: 'local', side: params.side, pos: { lat: walkTo.lat, depth: walkTo.depth }, y: contactHeight }
     : { kind: 'atPlayer', who, contact: params.action === 'serve' ? 'hands' : 'reach' };
 
+  // The ball can't leave a player's hands before the player gets there: the
+  // walk/approach and the flight are sequential, not simultaneous, so the
+  // ball segment is offset to start right as the movement finishes. Getting
+  // this wrong (both starting at the step's t=0, which is what a first pass
+  // at this looked like) makes the ball visibly take off mid-walk, then, once
+  // its own short flight duration elapses long before the movement does,
+  // just sit at the landing spot for the remainder of the step while the
+  // player is still approaching — the "ball lags, then teleports, then comes
+  // back" bug this was written to fix.
+  const contactAtS = movement.duration ?? 0;
+
   let ball: BallSegment;
 
   if (params.action === 'set') {
@@ -156,6 +167,7 @@ export const commitContactAction = (play: Play, params: CommitContactParams): Pl
       to: { kind: 'zoneAnchor', side: params.side, zone },
       apexM,
       duration: SET_TEMPO_S[params.setTarget.tempo],
+      startOffset: contactAtS,
     };
   } else {
     if (!params.target) throw new Error(`commitContactAction: "${params.action}" requires target`);
@@ -168,20 +180,19 @@ export const commitContactAction = (play: Play, params: CommitContactParams): Pl
       apexM,
       apexU: defaults.apexU,
       duration: defaults.ballDurationS,
+      startOffset: contactAtS,
     };
   }
 
-  // A step's duration has to cover its longest movement, or that movement's
-  // track segment runs past the step boundary compile.ts advances by,
-  // overlapping into the next step's own time range. Ball duration and
-  // movement duration used to always satisfy this by construction (a hold
-  // movement never took longer than its ball's flight); now that a serve or
-  // an arrival-chasing contact action can need a multi-second walk, the step
-  // has to explicitly stretch to fit it.
+  // The step has to last at least as long as the movement plus the ball's
+  // own flight, now that the two run one after the other instead of
+  // overlapping — otherwise the ball's track segment (which starts at
+  // contactAtS, not 0) would still run past the step boundary compile.ts
+  // advances by.
   const step: PlayStep = {
     id: crypto.randomUUID(),
     name: params.action[0].toUpperCase() + params.action.slice(1),
-    duration: params.stepDurationS ?? Math.max(ball.duration ?? 1, movement.duration ?? 0),
+    duration: params.stepDurationS ?? contactAtS + (ball.duration ?? 1),
     ball,
     movements: [movement],
   };

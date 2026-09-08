@@ -101,6 +101,17 @@ describe('commitContactAction — walking to the ball instead of standing still'
     expect(step.duration).toBeGreaterThanOrEqual(step.ball?.duration ?? 0);
   });
 
+  it("delays contact until the walk finishes, instead of the ball flying while the player is still mid-approach", () => {
+    const play = commitContactAction(blankPlay(), { action: 'serve', onCourtId: 'A:1', side: 'A', target: { lat: 0, depth: -6.6 } });
+    const step = play.steps[0];
+    const movementDuration = step.movements[0].duration ?? 0;
+    expect(movementDuration).toBeGreaterThan(0); // a real walk, not a no-op hold
+    expect(step.ball?.startOffset).toBe(movementDuration);
+    // The two run back-to-back, not overlapping: the step is exactly long
+    // enough for the walk, then the flight, with no slack either way.
+    expect(step.duration).toBe(movementDuration + (step.ball?.duration ?? 0));
+  });
+
   it('falls back to holding position for the very first ball touch (nothing incoming yet)', () => {
     const play = commitContactAction(blankPlay(), { action: 'pass', onCourtId: 'B:5', side: 'B', target: { lat: 1.5, depth: 2.0 } });
     expect(play.steps[0].movements[0].to).toEqual({ kind: 'atPlayer', who: { side: 'B', kind: 'slot', index: 5 }, contact: 'feet' });

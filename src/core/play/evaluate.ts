@@ -9,14 +9,28 @@ interface TimedSegment {
   endS: number;
 }
 
-/** First segment covering `t`, clamped to the first/last segment outside the schedule's range. */
+/**
+ * The segment covering `t`, clamped to the first segment if `t` precedes
+ * everything. If `t` falls in a genuine gap between segments — a ball
+ * segment can end before its own step does, now that a step's duration can
+ * be stretched to fit a movement longer than the ball's flight — this holds
+ * at the most recent segment that already started, not whichever segment
+ * happens to be last in the array. Returning `segments[length - 1]`
+ * unconditionally (the old behavior) meant a mid-play gap made the ball (or
+ * a player) jump to wherever the *final* segment of the whole track put
+ * them, before snapping back once the real next segment began: exactly the
+ * "lags, teleports away, comes back" bug this was written to fix.
+ */
 const findActiveSegment = <T extends TimedSegment>(segments: readonly T[], t: number): T | null => {
   if (segments.length === 0) return null;
-  if (t <= segments[0].startS) return segments[0];
+  let mostRecentlyStarted: T | null = null;
   for (const seg of segments) {
     if (t >= seg.startS && t <= seg.endS) return seg;
+    if (seg.startS <= t && (!mostRecentlyStarted || seg.startS > mostRecentlyStarted.startS)) {
+      mostRecentlyStarted = seg;
+    }
   }
-  return segments[segments.length - 1];
+  return mostRecentlyStarted ?? segments[0];
 };
 
 const segmentU = (seg: TimedSegment, t: number): number => {
