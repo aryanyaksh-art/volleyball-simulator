@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { CameraPresetId } from '@/render/cameraPresets';
 import { DEFAULT_THEME_ID } from '@/render/theme/presets';
 import type { PoseId } from '@/core/play/poses';
+import type { BenchDropTarget } from '@/render/BenchDragController';
 
 interface AppState {
   themeId: string;
@@ -29,6 +30,19 @@ interface AppState {
   /** The Advanced/Simple split, shared by author mode, formation mode, and the bottom ControlBar (theme/camera/pose-preview). Off (simple) by default: author mode hides the timeline/step-inspector sidebar in favor of the guided panel, formation mode hides the Roster/Lineup/Rotation/Validation/Formation/Bench sidebar entirely, and ControlBar itself doesn't render at all. */
   authorAdvancedMode: boolean;
   toggleAuthorAdvancedMode: () => void;
+
+  /**
+   * Resolves a raw pointer position (clientX/clientY) to a court drop
+   * target, registered by SceneCanvas on mount. This is what lets an HTML
+   * element entirely outside the 3D canvas (the on-screen bench chips
+   * flanking the court) participate in a real drag-and-drop onto the
+   * court: the chip itself owns the pointer capture, so it never sees a
+   * dragover/drop event from the canvas, but on release it can still ask
+   * "what's under this screen position" without needing to reach into
+   * SceneCanvas's internal renderer/camera refs directly.
+   */
+  resolveCourtDropTarget: ((clientX: number, clientY: number) => BenchDropTarget) | null;
+  setResolveCourtDropTarget: (fn: ((clientX: number, clientY: number) => BenchDropTarget) | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -52,6 +66,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   authorAdvancedMode: false,
   toggleAuthorAdvancedMode: () => set((s) => ({ authorAdvancedMode: !s.authorAdvancedMode })),
+
+  resolveCourtDropTarget: null,
+  setResolveCourtDropTarget: (fn) => set({ resolveCourtDropTarget: fn }),
 }));
 
 // Dev-only escape hatch for driving the store from devtools/automation

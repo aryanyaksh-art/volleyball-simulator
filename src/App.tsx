@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { SceneCanvas } from '@/ui/SceneCanvas';
+import { CourtBenchOverlay } from '@/ui/CourtBenchOverlay';
 import { ControlBar } from '@/ui/ControlBar';
 import { TransportBar } from '@/ui/TransportBar';
 import { LineupSidebar } from '@/ui/panels/LineupSidebar';
@@ -38,6 +39,7 @@ function App() {
       <div className="main-row">
         <div className="scene-viewport">
           <SceneCanvas />
+          {!presentationMode && <CourtBenchOverlay />}
           {!presentationMode && mode === 'play' && <DiagnosticsPanel />}
           {showAuthorAdvancedToggle && (
             <button className="chip advanced-toggle" onClick={toggleAuthorAdvancedMode}>
