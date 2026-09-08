@@ -1,10 +1,13 @@
 import type { LocalPos, Side } from '@/core/court/coordinates';
 import { distanceLocal, toWorld } from '@/core/court/coordinates';
 import { DEFAULT_COURT_SPEC, type CourtSpec } from '@/core/court/courtSpec';
+import { effectivePosition } from '@/core/court/anchors';
+import type { ZoneNumber } from '@/core/court/zones';
 import type { Vec3 } from '@/core/math/vec';
 import { distance3 } from '@/core/math/vec';
 import { ballHeightAt } from '@/core/play/ballFlight';
 import { REACTION_TIME_S, SPEED_CAP_MPS } from '@/core/play/playerMotion';
+import type { LineupBreakdown } from '@/core/lineup/systems';
 
 /** A receiving-team player assigned to pass, with their court position and effective range. */
 export interface Passer {
@@ -13,6 +16,42 @@ export interface Passer {
   /** >1 widens this passer's effective range (the libero, or a team's best passer). 1 = normal. */
   weight: number;
 }
+
+/**
+ * Builds the Passer[] list `analyzeServeReceive` needs from live app state —
+ * previously built independently (and identically) in both
+ * ServeReceivePanel.tsx and SceneCanvas.tsx's serve-receive effect. `slots`
+ * is whichever serve-order slots are checked as passers; a slot with no
+ * on-court player yet (a not-fully-seated lineup) is silently skipped
+ * rather than producing a broken entry.
+ */
+export const buildPassers = (
+  breakdown: LineupBreakdown,
+  overrides: Partial<Record<ZoneNumber, LocalPos>> | undefined,
+  passerSlots: number[],
+  passerWeights: Record<number, number>,
+): Passer[] =>
+  passerSlots
+    .map((slot) => {
+      const p = breakdown.onCourt.find((oc) => oc.slot === slot);
+      if (!p || p.zone == null) return null;
+      return { onCourtId: p.onCourtId, pos: effectivePosition(p.zone, overrides), weight: passerWeights[slot] ?? 1 };
+    })
+    .filter((p): p is Passer => p !== null);
+
+/**
+ * Speed/apex presets for the two serve types a coach can pick in guided
+ * serve-receive planning — a float serve (slower, no spin, a floatier arc)
+ * versus a jump (topspin) serve (harder, flatter). Reasonable coaching
+ * approximations, not measured data, same spirit as the rest of this
+ * module's defaults (serveSpeedMps/serveApexM below).
+ */
+export const SERVE_PROFILES = {
+  float: { speedMps: 12, apexM: 3.2 },
+  jump: { speedMps: 19, apexM: 2.6 },
+} as const;
+
+export type ServeType = keyof typeof SERVE_PROFILES;
 
 export interface ResponsibilityResult {
   bestId: string;
@@ -122,6 +161,49 @@ export interface ServeReceiveParams {
   playableHeightM?: number;
 }
 
+interface ResolvedServeReceiveParams {
+  side: Side;
+  passers: Passer[];
+  serveOriginWorld: Vec3;
+  seamThresholdM: number;
+  serveApexM: number;
+  serveSpeedMps: number;
+  passerSpeedMps: number;
+  contactHeightM: number;
+  playableHeightM: number;
+}
+
+/** The per-point computation shared by the whole-grid analysis and a single aimed-serve query: responsibility plus the flight-time-minus-reach-time margin at exactly `center`. */
+const evaluateCell = (params: ResolvedServeReceiveParams, center: LocalPos): ServeReceiveCell => {
+  const responsibility = assignResponsibility(params.passers, center, params.seamThresholdM);
+
+  const targetWorld = toWorld(center, params.side, 0);
+  const distM = distance3(params.serveOriginWorld, targetWorld);
+  const totalDurationS = distM / params.serveSpeedMps;
+  const flightTimeS = solveTimeToHeight(params.contactHeightM, 0, params.serveApexM, params.playableHeightM, totalDurationS);
+
+  let bestReachS = Infinity;
+  for (const p of params.passers) {
+    const reach = REACTION_TIME_S + distanceLocal(p.pos, center) / params.passerSpeedMps;
+    if (reach < bestReachS) bestReachS = reach;
+  }
+
+  const marginS = flightTimeS == null || !Number.isFinite(bestReachS) ? null : flightTimeS - bestReachS;
+  return { center, responsibility, marginS, severity: classifySeverity(marginS) };
+};
+
+const resolveParams = (params: ServeReceiveParams): ResolvedServeReceiveParams => ({
+  side: params.side,
+  passers: params.passers,
+  serveOriginWorld: params.serveOriginWorld,
+  seamThresholdM: params.seamThresholdM ?? 0.4,
+  serveApexM: params.serveApexM ?? 3.0,
+  serveSpeedMps: params.serveSpeedMps ?? 15,
+  passerSpeedMps: params.passerSpeedMps ?? SPEED_CAP_MPS.shuffle,
+  contactHeightM: params.contactHeightM ?? 2.2,
+  playableHeightM: params.playableHeightM ?? 1.0,
+});
+
 /**
  * The responsibility grid plus the uncovered-area time-margin analysis in
  * one pass — the plan calls this the payoff of the whole serve-receive
@@ -134,39 +216,28 @@ export interface ServeReceiveParams {
 export const analyzeServeReceive = (params: ServeReceiveParams): ServeReceiveCell[] => {
   const courtSpec = params.courtSpec ?? DEFAULT_COURT_SPEC;
   const cellSizeM = params.cellSizeM ?? 0.25;
-  const seamThresholdM = params.seamThresholdM ?? 0.4;
-  const serveApexM = params.serveApexM ?? 3.0;
-  const serveSpeedMps = params.serveSpeedMps ?? 15;
-  const passerSpeedMps = params.passerSpeedMps ?? SPEED_CAP_MPS.shuffle;
-  const contactHeightM = params.contactHeightM ?? 2.2;
-  const playableHeightM = params.playableHeightM ?? 1.0;
+  const resolved = resolveParams(params);
 
   const bounds = defaultReceivingBounds(courtSpec);
   const cells: ServeReceiveCell[] = [];
 
   for (let depth = bounds.depthMin + cellSizeM / 2; depth < bounds.depthMax; depth += cellSizeM) {
     for (let lat = bounds.latMin + cellSizeM / 2; lat < bounds.latMax; lat += cellSizeM) {
-      const center: LocalPos = { lat, depth };
-      const responsibility = assignResponsibility(params.passers, center, seamThresholdM);
-
-      const targetWorld = toWorld(center, params.side, 0);
-      const distM = distance3(params.serveOriginWorld, targetWorld);
-      const totalDurationS = distM / serveSpeedMps;
-      const flightTimeS = solveTimeToHeight(contactHeightM, 0, serveApexM, playableHeightM, totalDurationS);
-
-      let bestReachS = Infinity;
-      for (const p of params.passers) {
-        const reach = REACTION_TIME_S + distanceLocal(p.pos, center) / passerSpeedMps;
-        if (reach < bestReachS) bestReachS = reach;
-      }
-
-      const marginS = flightTimeS == null || !Number.isFinite(bestReachS) ? null : flightTimeS - bestReachS;
-      cells.push({ center, responsibility, marginS, severity: classifySeverity(marginS) });
+      cells.push(evaluateCell(resolved, { lat, depth }));
     }
   }
 
   return cells;
 };
+
+/**
+ * The same margin analysis as a single point — "this exact aimed serve,"
+ * not the whole grid. Used for a coach-placed serve target instead of only
+ * an origin zone: the grid answers "how covered is this rotation in
+ * general," this answers "is THIS specific serve safe."
+ */
+export const analyzeSingleServe = (params: ServeReceiveParams & { target: LocalPos }): ServeReceiveCell =>
+  evaluateCell(resolveParams(params), params.target);
 
 /** The setter's release point falls in a seam nobody clearly owns — the plan's SETTER_IN_SEAM check. */
 export const checkSetterInSeam = (cells: ServeReceiveCell[], setterPos: LocalPos): boolean => {

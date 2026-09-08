@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   analyzeServeReceive,
+  analyzeSingleServe,
   assignResponsibility,
+  buildPassers,
   checkLateRelease,
   checkSetterInSeam,
   defaultReceivingBounds,
@@ -10,6 +12,7 @@ import {
 } from '@/core/tactics/serveReceive';
 import { ballHeightAt } from '@/core/play/ballFlight';
 import { toWorld } from '@/core/court/coordinates';
+import type { LineupBreakdown } from '@/core/lineup/systems';
 
 describe('assignResponsibility', () => {
   const passers: Passer[] = [
@@ -155,5 +158,49 @@ describe('checkLateRelease', () => {
 
   it('does not flag a release comfortably within reach', () => {
     expect(checkLateRelease({ lat: 1, depth: 2 }, { lat: 1.5, depth: 2 }, 1.0)).toBe(false);
+  });
+});
+
+describe('buildPassers', () => {
+  const breakdown: LineupBreakdown = {
+    side: 'B',
+    rotation: 0,
+    onCourt: [
+      { onCourtId: 'B:0', side: 'B', slot: 0, playerId: 'p0', zone: 5, row: 'back', isServer: false, isLibero: false },
+      { onCourtId: 'B:1', side: 'B', slot: 1, playerId: 'p1', zone: 6, row: 'back', isServer: false, isLibero: true },
+    ],
+    setterOnCourtId: null,
+    setterZone: null,
+    setterRow: null,
+    frontRowAttackerCount: 0,
+    serverOnCourtId: null,
+  };
+
+  it("builds a Passer per requested slot, using each zone's effective position and weight", () => {
+    const passers = buildPassers(breakdown, undefined, [0, 1], { 1: 2.5 });
+    expect(passers).toHaveLength(2);
+    expect(passers[0]).toMatchObject({ onCourtId: 'B:0', weight: 1 });
+    expect(passers[1]).toMatchObject({ onCourtId: 'B:1', weight: 2.5 });
+  });
+
+  it('skips a requested slot that has no on-court player at all', () => {
+    const passers = buildPassers(breakdown, undefined, [0, 5], {});
+    expect(passers).toHaveLength(1);
+    expect(passers[0].onCourtId).toBe('B:0');
+  });
+});
+
+describe('analyzeSingleServe', () => {
+  it('evaluates one exact point, matching what the whole-grid analysis would say about that same point', () => {
+    const passers: Passer[] = [
+      { onCourtId: 'left', pos: { lat: -3, depth: 5 }, weight: 1 },
+      { onCourtId: 'right', pos: { lat: 3, depth: 5 }, weight: 1 },
+    ];
+    const serveOriginWorld = toWorld({ lat: 0, depth: 9 }, 'A');
+    const target = { lat: -3, depth: 5 };
+    const single = analyzeSingleServe({ side: 'B', passers, serveOriginWorld, target });
+    expect(single.center).toEqual(target);
+    expect(single.responsibility.bestId).toBe('left');
+    expect(single.severity).toBeDefined();
   });
 });

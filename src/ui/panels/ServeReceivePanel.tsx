@@ -4,9 +4,12 @@ import { useServeReceiveStore } from '@/app/store/useServeReceiveStore';
 import { breakdown } from '@/core/lineup/systems';
 import { findPlayer } from '@/core/roster/types';
 import { effectivePosition } from '@/core/court/anchors';
-import { otherSide, toWorld } from '@/core/court/coordinates';
+import { otherSide, toLocal, toWorld } from '@/core/court/coordinates';
 import type { ZoneNumber } from '@/core/court/zones';
-import { analyzeServeReceive, checkSetterInSeam, type Passer } from '@/core/tactics/serveReceive';
+import { playerSlotInZone } from '@/core/lineup/rotation';
+import { analyzeServeReceive, analyzeSingleServe, buildPassers, checkSetterInSeam, SERVE_PROFILES } from '@/core/tactics/serveReceive';
+import { SERVE_RECEIVE_PRESETS, SERVE_RECEIVE_PRESET_IDS } from '@/core/tactics/serveReceivePresets';
+import { TopDownTargetPicker } from '@/ui/TopDownTargetPicker';
 
 const ORIGIN_ZONES: ZoneNumber[] = [1, 5, 6];
 const CONTACT_HEIGHT_M = 2.2;
@@ -16,10 +19,15 @@ export function ServeReceivePanel() {
   const passerSlots = useServeReceiveStore((s) => s.passerSlots);
   const passerWeights = useServeReceiveStore((s) => s.passerWeights);
   const serveOriginZone = useServeReceiveStore((s) => s.serveOriginZone);
+  const serveTargetOverride = useServeReceiveStore((s) => s.serveTargetOverride);
+  const serveType = useServeReceiveStore((s) => s.serveType);
   const setReceivingSide = useServeReceiveStore((s) => s.setReceivingSide);
   const togglePasserSlot = useServeReceiveStore((s) => s.togglePasserSlot);
+  const setPasserSlots = useServeReceiveStore((s) => s.setPasserSlots);
   const setPasserWeight = useServeReceiveStore((s) => s.setPasserWeight);
   const setServeOriginZone = useServeReceiveStore((s) => s.setServeOriginZone);
+  const setServeTargetOverride = useServeReceiveStore((s) => s.setServeTargetOverride);
+  const setServeType = useServeReceiveStore((s) => s.setServeType);
 
   const rosters = useLineupStore((s) => s.rosters);
   const lineups = useLineupStore((s) => s.lineups);
@@ -28,22 +36,23 @@ export function ServeReceivePanel() {
 
   const servingSide = otherSide(receivingSide);
   const b = breakdown(lineups[receivingSide], rosters[receivingSide], receivingSide, rotations[receivingSide]);
+  const profile = SERVE_PROFILES[serveType];
+
+  const applyPreset = (presetId: (typeof SERVE_RECEIVE_PRESET_IDS)[number]) => {
+    const preset = SERVE_RECEIVE_PRESETS[presetId];
+    const rotation = rotations[receivingSide];
+    setPasserSlots(preset.passerZones.map((zone) => playerSlotInZone(rotation, zone)));
+    if (preset.positions) {
+      for (const [zoneStr, pos] of Object.entries(preset.positions)) {
+        if (pos) useLineupStore.getState().setPositionOverride(receivingSide, Number(zoneStr) as ZoneNumber, pos);
+      }
+    }
+  };
 
   const analysis = useMemo(() => {
     if (passerSlots.length === 0) return null;
 
-    const passers: Passer[] = passerSlots
-      .map((slot) => {
-        const p = b.onCourt.find((oc) => oc.slot === slot);
-        if (!p || p.zone == null) return null;
-        return {
-          onCourtId: p.onCourtId,
-          pos: effectivePosition(p.zone, positionOverrides[receivingSide]),
-          weight: passerWeights[slot] ?? 1,
-        };
-      })
-      .filter((p): p is Passer => p !== null);
-
+    const passers = buildPassers(b, positionOverrides[receivingSide], passerSlots, passerWeights);
     if (passers.length === 0) return null;
 
     const serveOriginWorld = toWorld(
@@ -61,8 +70,26 @@ export function ServeReceivePanel() {
     const counts = { safe: 0, tight: 0, uncovered: 0 };
     for (const cell of cells) counts[cell.severity]++;
 
-    return { cells, counts, setterInSeam };
-  }, [passerSlots, passerWeights, b, positionOverrides, receivingSide, servingSide, serveOriginZone]);
+    let singleServe = null as ReturnType<typeof analyzeSingleServe> | null;
+    if (serveTargetOverride) {
+      // serveTargetOverride is placed in the SERVING side's own frame (the
+      // natural "I'm the server, aiming at the opponent's court" framing
+      // guided authoring's own serve UI already uses) — convert to the
+      // receiving side's frame, which is what analyzeSingleServe's `side`
+      // and every cell in `cells` are already expressed in.
+      const targetInReceivingFrame = toLocal(toWorld(serveTargetOverride, servingSide, 0), receivingSide);
+      singleServe = analyzeSingleServe({
+        side: receivingSide,
+        passers,
+        serveOriginWorld,
+        target: targetInReceivingFrame,
+        serveApexM: profile.apexM,
+        serveSpeedMps: profile.speedMps,
+      });
+    }
+
+    return { cells, counts, setterInSeam, singleServe };
+  }, [passerSlots, passerWeights, b, positionOverrides, receivingSide, servingSide, serveOriginZone, serveTargetOverride, profile]);
 
   return (
     <div className="panel">
@@ -84,6 +111,15 @@ export function ServeReceivePanel() {
         {ORIGIN_ZONES.map((z) => (
           <button key={z} className={serveOriginZone === z ? 'chip chip-active' : 'chip'} onClick={() => setServeOriginZone(z)}>
             {z}
+          </button>
+        ))}
+      </div>
+
+      <div className="control-group">
+        <span className="control-label">Formation</span>
+        {SERVE_RECEIVE_PRESET_IDS.map((id) => (
+          <button key={id} className="chip chip-small" onClick={() => applyPreset(id)}>
+            {SERVE_RECEIVE_PRESETS[id].label}
           </button>
         ))}
       </div>
@@ -127,6 +163,44 @@ export function ServeReceivePanel() {
       </table>
 
       {passerSlots.length === 0 && <p className="panel-note">Check at least one passer to see coverage.</p>}
+
+      <div className="control-group">
+        <span className="control-label">Aim a specific serve</span>
+        <button className={serveType === 'float' ? 'chip chip-active' : 'chip'} onClick={() => setServeType('float')}>
+          Float
+        </button>
+        <button className={serveType === 'jump' ? 'chip chip-active' : 'chip'} onClick={() => setServeType('jump')}>
+          Jump
+        </button>
+        {serveTargetOverride && (
+          <button className="chip chip-small" onClick={() => setServeTargetOverride(null)}>
+            Clear
+          </button>
+        )}
+      </div>
+      <TopDownTargetPicker
+        lat={serveTargetOverride?.lat ?? 0}
+        depth={serveTargetOverride?.depth ?? 0}
+        onChange={(lat, depth) => setServeTargetOverride({ lat, depth })}
+      />
+      {analysis?.singleServe && (
+        <p
+          className={
+            analysis.singleServe.severity === 'safe'
+              ? 'panel-note margin-ok'
+              : analysis.singleServe.severity === 'tight'
+                ? 'panel-note violation-warning'
+                : 'panel-note violation-error'
+          }
+        >
+          This exact serve:{' '}
+          {analysis.singleServe.marginS == null
+            ? 'never descends to a playable height (too flat/high for this apex).'
+            : analysis.singleServe.marginS >= 0
+              ? `safe, +${analysis.singleServe.marginS.toFixed(2)}s to spare.`
+              : `uncovered by ${Math.abs(analysis.singleServe.marginS).toFixed(2)}s.`}
+        </p>
+      )}
 
       {analysis && (
         <>

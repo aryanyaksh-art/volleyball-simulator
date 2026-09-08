@@ -31,7 +31,7 @@ import { compilePlay } from '@/core/play/compile';
 import { evaluateInto } from '@/core/play/evaluate';
 import { createWorldState, type PlaySchedule, type WorldState } from '@/core/play/schedule';
 import { diagnosePlay } from '@/core/play/diagnostics';
-import { analyzeServeReceive, type Passer } from '@/core/tactics/serveReceive';
+import { analyzeServeReceive, buildPassers } from '@/core/tactics/serveReceive';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
 import { commitPositionAction } from '@/app/guidedAuthoring';
 
@@ -492,13 +492,7 @@ export function SceneCanvas() {
     const b = breakdown(lineups[srReceivingSide], rosters[srReceivingSide], srReceivingSide, rotations[srReceivingSide]);
     const overrides = positionOverrides[srReceivingSide];
 
-    const passers: Passer[] = srPasserSlots
-      .map((slot) => {
-        const p = b.onCourt.find((oc) => oc.slot === slot);
-        if (!p || p.zone == null) return null;
-        return { onCourtId: p.onCourtId, pos: effectivePosition(p.zone, overrides), weight: srPasserWeights[slot] ?? 1 };
-      })
-      .filter((p): p is Passer => p !== null);
+    const passers = buildPassers(b, overrides, srPasserSlots, srPasserWeights);
 
     if (passers.length === 0) {
       bridge.setCoverageHeatmap([], srReceivingSide, SERVE_RECEIVE_CELL_SIZE_M);
