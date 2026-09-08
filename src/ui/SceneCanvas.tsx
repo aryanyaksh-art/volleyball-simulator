@@ -197,6 +197,7 @@ export function SceneCanvas() {
     bridge.setFormation(scene.placements);
     bridge.setViolationLinks(scene.violationLinks);
     useAppStore.getState().setSceneCanvasEl(renderer.renderer.domElement);
+    useAppStore.getState().setSceneCameraRig(renderer.cameraRig);
 
     renderer.start((dtSeconds) => {
       const b = bridgeRef.current;
@@ -408,6 +409,7 @@ export function SceneCanvas() {
       bridgeRef.current = null;
       dragControllerRef.current = null;
       useAppStore.getState().setSceneCanvasEl(null);
+      useAppStore.getState().setSceneCameraRig(null);
     };
   }, []);
 

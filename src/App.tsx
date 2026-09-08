@@ -8,6 +8,7 @@ import { AuthorSidebar } from '@/ui/panels/AuthorSidebar';
 import { GuidedAuthorPanel } from '@/ui/panels/GuidedAuthorPanel';
 import { ServeReceiveSidebar } from '@/ui/panels/ServeReceiveSidebar';
 import { MatchupSidebar } from '@/ui/panels/MatchupSidebar';
+import { PlayLibraryPanel } from '@/ui/panels/PlayLibraryPanel';
 import { DiagnosticsPanel } from '@/ui/panels/DiagnosticsPanel';
 import { usePlaybackStore } from '@/app/store/usePlaybackStore';
 import { useAppStore } from '@/app/store/useAppStore';
@@ -20,6 +21,7 @@ function App() {
   const togglePresentationMode = useAppStore((s) => s.togglePresentationMode);
   const authorAdvancedMode = useAppStore((s) => s.authorAdvancedMode);
   const toggleAuthorAdvancedMode = useAppStore((s) => s.toggleAuthorAdvancedMode);
+  const showPlayLibrary = useAppStore((s) => s.showPlayLibrary);
 
   usePresentationWakeLock(presentationMode);
 
@@ -53,7 +55,9 @@ function App() {
           )}
         </div>
         {!presentationMode &&
-          (mode === 'author' ? (
+          (showPlayLibrary && (mode === 'formation' || mode === 'play') ? (
+            <PlayLibraryPanel />
+          ) : mode === 'author' ? (
             authorAdvancedMode ? (
               <AuthorSidebar />
             ) : null

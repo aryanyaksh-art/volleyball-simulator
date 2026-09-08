@@ -3,6 +3,7 @@ import type { CameraPresetId } from '@/render/cameraPresets';
 import { DEFAULT_THEME_ID } from '@/render/theme/presets';
 import type { PoseId } from '@/core/play/poses';
 import type { Vec3 } from '@/core/math/vec';
+import type { CameraRig } from '@/render/CameraRig';
 
 interface AppState {
   themeId: string;
@@ -33,9 +34,17 @@ interface AppState {
   sceneCanvasEl: HTMLCanvasElement | null;
   setSceneCanvasEl: (el: HTMLCanvasElement | null) => void;
 
+  /** The live renderer's camera rig, registered by SceneCanvas on mount — same pattern as sceneCanvasEl, exposed for the same reason: the rotation-sheet export needs to drive the camera to a specific angle for each captured frame, then restore exactly where the user left it. */
+  sceneCameraRig: CameraRig | null;
+  setSceneCameraRig: (rig: CameraRig | null) => void;
+
   /** The Advanced/Simple split, shared by author mode, formation mode, and the bottom ControlBar (theme/camera/pose-preview). Off (simple) by default: author mode hides the timeline/step-inspector sidebar in favor of the guided panel, formation mode hides the Roster/Lineup/Rotation/Validation/Formation/Bench sidebar entirely, and ControlBar itself doesn't render at all. */
   authorAdvancedMode: boolean;
   toggleAuthorAdvancedMode: () => void;
+
+  /** Toggles the saved-plays library panel, available from formation/play mode. */
+  showPlayLibrary: boolean;
+  toggleShowPlayLibrary: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -61,8 +70,14 @@ export const useAppStore = create<AppState>((set) => ({
   sceneCanvasEl: null,
   setSceneCanvasEl: (el) => set({ sceneCanvasEl: el }),
 
+  sceneCameraRig: null,
+  setSceneCameraRig: (rig) => set({ sceneCameraRig: rig }),
+
   authorAdvancedMode: false,
   toggleAuthorAdvancedMode: () => set((s) => ({ authorAdvancedMode: !s.authorAdvancedMode })),
+
+  showPlayLibrary: false,
+  toggleShowPlayLibrary: () => set((s) => ({ showPlayLibrary: !s.showPlayLibrary })),
 }));
 
 // Dev-only escape hatch for driving the store from devtools/automation

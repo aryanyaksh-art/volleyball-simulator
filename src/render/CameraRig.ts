@@ -79,6 +79,19 @@ export class CameraRig {
     };
   }
 
+  /** A plain snapshot of the current camera position/target, for capturing "wherever the user left it" before a scripted change (the rotation-sheet export) so it can be restored exactly afterward, rather than to some named preset that may not match. */
+  getState(): { position: THREE.Vector3; target: THREE.Vector3 } {
+    return { position: this.camera.position.clone(), target: this.controls.target.clone() };
+  }
+
+  /** Applies a snapshot from getState() immediately, cancelling any in-progress tween — used to restore the camera after a scripted change, not for normal navigation (which should go through goToPreset/focusOn so it animates). */
+  setStateInstant(state: { position: THREE.Vector3; target: THREE.Vector3 }): void {
+    this.transition = null;
+    this.camera.position.copy(state.position);
+    this.controls.target.copy(state.target);
+    this.controls.update();
+  }
+
   setAspect(aspect: number): void {
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();

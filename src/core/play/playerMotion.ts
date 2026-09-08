@@ -1,6 +1,6 @@
 import type { LocalPos } from '@/core/court/coordinates';
 import { distanceLocal } from '@/core/court/coordinates';
-import type { MovementMode } from './types';
+import type { MovementMode, PlayStep } from './types';
 
 /** Speed caps per mode, in meters/second. */
 export const SPEED_CAP_MPS: Record<Exclude<MovementMode, 'hold'>, number> = {
@@ -59,6 +59,32 @@ export const checkSpeedCap = (
     suggestedDurationS,
     message: `${onCourtId} must cover ${distanceM.toFixed(1)} m in ${durationS.toFixed(2)} s (${requiredMps.toFixed(1)} m/s); ${mode} cap is ${capMps} m/s.`,
   };
+};
+
+/**
+ * The shortest a step's own `duration` can be without cutting off its ball
+ * segment's flight or a movement inside it — the same invariant
+ * commitContactAction already maintains for guided-built steps (a step
+ * stretches to cover its own ball's `startOffset + duration`), surfaced here
+ * so the Advanced editor's manual duration field can't be shrunk below it
+ * either. Only segments with an EXPLICIT duration impose a floor: a
+ * movement with no `duration` of its own is elastic by design (compile.ts
+ * resolves it to "however long is left in the step"), so it can never be
+ * the thing constraining the step — shrinking the step just shrinks that
+ * movement along with it.
+ */
+export const minStepDuration = (step: PlayStep): number => {
+  let min = 0;
+  if (step.ball?.duration != null) {
+    const end = (step.ball.startOffset ?? 0) + step.ball.duration;
+    if (end > min) min = end;
+  }
+  for (const mv of step.movements) {
+    if (mv.duration == null) continue;
+    const end = (mv.startOffset ?? 0) + mv.duration;
+    if (end > min) min = end;
+  }
+  return min;
 };
 
 /** Vertical offset for a jump, zero outside its [atT - hangS/2, atT + hangS/2] window within the segment. */

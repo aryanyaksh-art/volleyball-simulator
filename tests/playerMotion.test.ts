@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { checkSpeedCap, jumpOffsetY, pathLength } from '@/core/play/playerMotion';
+import { checkSpeedCap, jumpOffsetY, minStepDuration, pathLength } from '@/core/play/playerMotion';
+import type { PlayStep } from '@/core/play/types';
 
 describe('pathLength', () => {
   it('sums straight-line distance through waypoints', () => {
@@ -25,6 +26,47 @@ describe('checkSpeedCap', () => {
   it('the suggested duration brings the move back under the cap', () => {
     const diagnostic = checkSpeedCap('B:MB1', 'sprint', 6.2, 0.8)!;
     expect(6.2 / diagnostic.suggestedDurationS).toBeLessThanOrEqual(6.5);
+  });
+});
+
+describe('minStepDuration', () => {
+  const baseStep: PlayStep = { id: 's', name: 'Step', duration: 1, movements: [] };
+
+  it('is zero for a step with no ball and no timed movements', () => {
+    expect(minStepDuration(baseStep)).toBe(0);
+  });
+
+  it('covers the ball segment\'s own startOffset + duration', () => {
+    const step: PlayStep = {
+      ...baseStep,
+      ball: { kind: 'serve', from: { kind: 'local', side: 'A', pos: { lat: 0, depth: 0 } }, to: { kind: 'local', side: 'A', pos: { lat: 0, depth: 0 } }, startOffset: 2.2, duration: 1.1 },
+    };
+    expect(minStepDuration(step)).toBeCloseTo(3.3);
+  });
+
+  it('covers a movement with an explicit duration', () => {
+    const step: PlayStep = {
+      ...baseStep,
+      movements: [{ who: { side: 'A', kind: 'slot', index: 0 }, to: { kind: 'local', side: 'A', pos: { lat: 0, depth: 0 } }, startOffset: 0.5, duration: 2.0 }],
+    };
+    expect(minStepDuration(step)).toBeCloseTo(2.5);
+  });
+
+  it('ignores a movement with no explicit duration — it is elastic, not a floor', () => {
+    const step: PlayStep = {
+      ...baseStep,
+      movements: [{ who: { side: 'A', kind: 'slot', index: 0 }, to: { kind: 'local', side: 'A', pos: { lat: 0, depth: 0 } } }],
+    };
+    expect(minStepDuration(step)).toBe(0);
+  });
+
+  it('takes the max across the ball and every timed movement', () => {
+    const step: PlayStep = {
+      ...baseStep,
+      ball: { kind: 'pass', from: { kind: 'local', side: 'A', pos: { lat: 0, depth: 0 } }, to: { kind: 'local', side: 'A', pos: { lat: 0, depth: 0 } }, duration: 0.9 },
+      movements: [{ who: { side: 'A', kind: 'slot', index: 0 }, to: { kind: 'local', side: 'A', pos: { lat: 0, depth: 0 } }, duration: 2.5 }],
+    };
+    expect(minStepDuration(step)).toBeCloseTo(2.5);
   });
 });
 

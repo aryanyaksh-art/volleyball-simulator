@@ -1,4 +1,6 @@
 import type { Side } from '@/core/court/coordinates';
+import type { CameraPresetId } from '@/render/cameraPresets';
+import type { CameraRig } from '@/render/CameraRig';
 
 const waitForFrame = (): Promise<void> =>
   new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
@@ -17,6 +19,9 @@ export interface RotationSheetParams {
   teamLabel: string;
   currentRotation: number;
   setRotation: (side: Side, rotation: number) => void;
+  /** When given, the camera snaps (instantly, no tween) to this preset for every captured frame, then back to wherever the user had it — a printable sheet should look consistent regardless of whatever angle happened to be on screen when Export was clicked. Omit to export from the current camera angle, unchanged. */
+  cameraRig?: CameraRig | null;
+  cameraPresetId?: CameraPresetId;
 }
 
 /**
@@ -27,7 +32,18 @@ export interface RotationSheetParams {
  * render loop time to actually redraw the new formation before capturing
  * (a single rAF can land between React's commit and the next draw call).
  */
-export const exportRotationSheet = async ({ canvas, side, teamLabel, currentRotation, setRotation }: RotationSheetParams): Promise<void> => {
+export const exportRotationSheet = async ({
+  canvas,
+  side,
+  teamLabel,
+  currentRotation,
+  setRotation,
+  cameraRig,
+  cameraPresetId,
+}: RotationSheetParams): Promise<void> => {
+  const restoreCameraState = cameraRig && cameraPresetId ? cameraRig.getState() : null;
+  if (cameraRig && cameraPresetId) cameraRig.goToPreset(cameraPresetId, 0);
+
   const shots: string[] = [];
   for (let r = 0; r < 6; r++) {
     setRotation(side, r);
@@ -35,6 +51,7 @@ export const exportRotationSheet = async ({ canvas, side, teamLabel, currentRota
     shots.push(canvas.toDataURL('image/png'));
   }
   setRotation(side, currentRotation);
+  if (cameraRig && restoreCameraState) cameraRig.setStateInstant(restoreCameraState);
 
   const images = await Promise.all(shots.map(loadImage));
   const cellW = images[0].width;

@@ -3,6 +3,7 @@ import type { LocalPos, Side } from '@/core/court/coordinates';
 import type { Play, PlayStep, Movement, MovementMode, BallSegment } from '@/core/play/types';
 import type { PoseId } from '@/core/play/poses';
 import { bakePlayForEditing, ballPositionBeforeStep, type BakeContext } from '@/core/play/bake';
+import { minStepDuration } from '@/core/play/playerMotion';
 
 const LOCAL_STORAGE_KEY = 'vb-saved-plays';
 const MAX_HISTORY = 50;
@@ -79,6 +80,7 @@ interface PlayEditorState {
 
   saveCurrentPlay: () => void;
   deleteSavedPlay: (id: string) => void;
+  renamePlay: (id: string, name: string) => void;
 
   /** Applies any whole-play mutation (e.g. guided authoring's commitContactAction/commitPositionAction) through the same undo/redo history every other edit here goes through. */
   applyGuidedAction: (mutator: (play: Play) => Play) => void;
@@ -133,7 +135,9 @@ export const usePlayEditorStore = create<PlayEditorState>((set, get) => {
     renameStep: (stepId, name) => mutate((play) => updateStep(play, stepId, (step) => ({ ...step, name }))),
 
     setStepDuration: (stepId, duration) =>
-      mutate((play) => updateStep(play, stepId, (step) => ({ ...step, duration: Math.max(duration, 0.05) }))),
+      mutate((play) =>
+        updateStep(play, stepId, (step) => ({ ...step, duration: Math.max(duration, minStepDuration(step), 0.05) })),
+      ),
 
     addMovement: (stepId, side, slot, pos) =>
       mutate((play) =>
@@ -234,6 +238,24 @@ export const usePlayEditorStore = create<PlayEditorState>((set, get) => {
       const savedPlays = { ...get().savedPlays };
       delete savedPlays[id];
       set({ savedPlays });
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(savedPlays));
+      } catch {
+        // ignore
+      }
+    },
+
+    renamePlay: (id, name) => {
+      const existing = get().savedPlays[id];
+      if (!existing) return;
+      const savedPlays = { ...get().savedPlays, [id]: { ...existing, name } };
+      set({ savedPlays });
+      // Renaming the play currently open in the editor should update its
+      // own name too, not just the saved-library copy — otherwise the
+      // Timeline header and TransportBar's "(saved)" row would show a name
+      // that's already stale the moment you rename from the library.
+      const editing = get().play;
+      if (editing?.id === id) set({ play: { ...editing, name } });
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(savedPlays));
       } catch {

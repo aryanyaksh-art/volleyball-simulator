@@ -36,6 +36,8 @@ export function TransportBar() {
   const loop = usePlaybackStore((s) => s.loop);
   const setLoop = usePlaybackStore((s) => s.setLoop);
   const togglePresentationMode = useAppStore((s) => s.togglePresentationMode);
+  const showPlayLibrary = useAppStore((s) => s.showPlayLibrary);
+  const toggleShowPlayLibrary = useAppStore((s) => s.toggleShowPlayLibrary);
 
   const editorPlay = usePlayEditorStore((s) => s.play);
   const loadPlay = usePlayEditorStore((s) => s.loadPlay);
@@ -138,6 +140,9 @@ export function TransportBar() {
           <button className="chip" onClick={() => setMode('matchup')}>
             Matchups
           </button>
+          <button className={showPlayLibrary ? 'chip chip-active' : 'chip'} onClick={toggleShowPlayLibrary}>
+            Play library
+          </button>
         </div>
       </div>
     );
@@ -154,6 +159,9 @@ export function TransportBar() {
         </button>
         <button className="chip" onClick={togglePresentationMode}>
           Present
+        </button>
+        <button className={showPlayLibrary ? 'chip chip-active' : 'chip'} onClick={toggleShowPlayLibrary}>
+          Play library
         </button>
       </div>
       <div className="control-group">
