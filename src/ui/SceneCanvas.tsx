@@ -371,7 +371,7 @@ export function SceneCanvas() {
       domElement: renderer.renderer.domElement,
       camera: renderer.cameraRig.camera,
       getDraggables: () => [...bridge.getPlayerRoots(), ...bridge.getBenchRoots()],
-      isEnabled: () => usePlaybackStore.getState().mode === 'formation',
+      isEnabled: () => usePlaybackStore.getState().mode === 'formation' && useAppStore.getState().movePlayersMode,
       setOrbitEnabled: (enabled) => {
         renderer.cameraRig.controls.enabled = enabled;
       },
@@ -437,6 +437,7 @@ export function SceneCanvas() {
         const playback = usePlaybackStore.getState();
         return playback.mode === 'author' && !useAppStore.getState().authorAdvancedMode;
       },
+      isDragEnabled: () => useAppStore.getState().movePlayersMode,
       setOrbitEnabled: (enabled) => {
         renderer.cameraRig.controls.enabled = enabled;
       },
@@ -525,7 +526,7 @@ export function SceneCanvas() {
       scheduleRef.current = null;
       return;
     }
-    const schedule = compilePlay(play, { rosters, lineups });
+    const schedule = compilePlay(play, { rosters, lineups, positions: positionOverrides });
     scheduleRef.current = schedule;
     usePlaybackStore.getState().setDuration(schedule.durationS);
     usePlaybackStore.getState().setDiagnostics(diagnosePlay(schedule));
@@ -538,7 +539,7 @@ export function SceneCanvas() {
     liberoOnCourtIdsRef.current = liberoIds;
 
     if (playbackMode !== 'author') tRef.current = 0;
-  }, [lineups, rosters, selectedPlayId, playbackMode, editorPlay, savedPlays]);
+  }, [lineups, rosters, selectedPlayId, playbackMode, editorPlay, savedPlays, positionOverrides]);
 
   // In author mode, selecting a different step jumps the preview to that
   // step's start time and pauses, so editing a step always shows it fresh.

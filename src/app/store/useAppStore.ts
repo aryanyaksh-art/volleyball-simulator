@@ -45,6 +45,10 @@ interface AppState {
   /** Toggles the saved-plays library panel, available from formation/play mode. */
   showPlayLibrary: boolean;
   toggleShowPlayLibrary: () => void;
+
+  /** Gates the drag-to-reposition gesture in formation mode and Design Play (guided author mode). Off by default so an ordinary click can't accidentally move someone; turning it on is what lets BenchDragController (formation) and GuidedPlayController's drag path (author) actually move a player. */
+  movePlayersMode: boolean;
+  toggleMovePlayersMode: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -78,6 +82,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   showPlayLibrary: false,
   toggleShowPlayLibrary: () => set((s) => ({ showPlayLibrary: !s.showPlayLibrary })),
+
+  movePlayersMode: false,
+  toggleMovePlayersMode: () => set((s) => ({ movePlayersMode: !s.movePlayersMode })),
 }));
 
 // Dev-only escape hatch for driving the store from devtools/automation

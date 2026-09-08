@@ -38,6 +38,8 @@ export function TransportBar() {
   const togglePresentationMode = useAppStore((s) => s.togglePresentationMode);
   const showPlayLibrary = useAppStore((s) => s.showPlayLibrary);
   const toggleShowPlayLibrary = useAppStore((s) => s.toggleShowPlayLibrary);
+  const movePlayersMode = useAppStore((s) => s.movePlayersMode);
+  const toggleMovePlayersMode = useAppStore((s) => s.toggleMovePlayersMode);
 
   const editorPlay = usePlayEditorStore((s) => s.play);
   const loadPlay = usePlayEditorStore((s) => s.loadPlay);
@@ -106,6 +108,9 @@ export function TransportBar() {
             Save play
           </button>
           {editorPlay && savedPlays[editorPlay.id] && <span className="control-label">(saved)</span>}
+          <button className={movePlayersMode ? 'chip chip-active' : 'chip'} onClick={toggleMovePlayersMode}>
+            Move players
+          </button>
         </div>
         {transportControls}
       </div>
@@ -133,6 +138,9 @@ export function TransportBar() {
           </button>
           <button className="chip" onClick={startNewPlay}>
             Design play
+          </button>
+          <button className={movePlayersMode ? 'chip chip-active' : 'chip'} onClick={toggleMovePlayersMode}>
+            Move players
           </button>
           <button className="chip" onClick={() => setMode('serve-receive')}>
             Serve-receive

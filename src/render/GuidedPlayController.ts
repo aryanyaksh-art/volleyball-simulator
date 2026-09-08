@@ -11,6 +11,8 @@ export interface GuidedPlayControllerParams {
   camera: THREE.Camera;
   getClickables: () => GuidedClickableRoot[];
   isEnabled: () => boolean;
+  /** Gates only the drag-to-reposition gesture, not click-to-select/click-to-place. When this returns false a pointer move never starts a drag, so releasing still resolves as a plain click. */
+  isDragEnabled: () => boolean;
   setOrbitEnabled: (enabled: boolean) => void;
   /** A player was clicked directly (no real drag in between). */
   onSelectPlayer: (id: string) => void;
@@ -94,6 +96,7 @@ export class GuidedPlayController {
   private handlePointerMove = (e: PointerEvent): void => {
     if (!this.downId || !this.downAt) return;
     if (!this.isDragging) {
+      if (!this.params.isDragEnabled()) return;
       const movedPx = Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y);
       if (movedPx <= DRAG_THRESHOLD_PX) return;
       this.isDragging = true;
