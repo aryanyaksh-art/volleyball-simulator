@@ -528,6 +528,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+.side-height-net {
+  stroke: #ff3b30;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 2;
+}
+
+.side-height-net-label {
+  fill: #ff3b30;
+  font-size: 8px;
+  text-anchor: start;
+}
+
 .guided-review-row {
   display: flex;
   align-items: center;
