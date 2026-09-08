@@ -238,9 +238,20 @@ export class SceneBridge {
     this.players.get(id)?.setPose(pose);
   }
 
-  /** Advances every player's pose crossfade. Called every render frame, in both formation and play mode. */
+  /**
+   * Advances every player's pose crossfade. Called every render frame, in
+   * both formation and play mode. Also advances bench players — a real
+   * gap until now (they were only ever set to the 'idle' pose, which has
+   * zero joint overrides and so exactly matches CapsuleHumanoid's initial
+   * currentJoints, making the missing update() call invisible; the moment
+   * bench players got a genuinely different pose — 'bench', a sitting
+   * approximation — this stopped being a no-op and the omission became a
+   * real visible bug: the target pose was set but never actually blended
+   * toward, so they stayed standing).
+   */
   update(dtSeconds: number): void {
     for (const visual of this.players.values()) visual.update(dtSeconds);
+    for (const visual of this.benchPlayers.values()) visual.update(dtSeconds);
   }
 
   /** Draws a connector + end markers between each pair of players in an overlap violation. */

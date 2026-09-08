@@ -4,6 +4,7 @@ import type { Play, PlayStep, Movement, MovementMode, BallSegment } from '@/core
 import type { PoseId } from '@/core/play/poses';
 import { bakePlayForEditing, ballPositionBeforeStep, type BakeContext } from '@/core/play/bake';
 import { minStepDuration } from '@/core/play/playerMotion';
+import { migratePlay } from '@/core/play/schema';
 
 const LOCAL_STORAGE_KEY = 'vb-saved-plays';
 const MAX_HISTORY = 50;
@@ -34,10 +35,26 @@ const updateMovement = (
 const updateBall = (play: Play, stepId: string, updater: (ball: BallSegment) => BallSegment): Play =>
   updateStep(play, stepId, (step) => (step.ball ? { ...step, ball: updater(step.ball) } : step));
 
+/**
+ * Runs every saved play through schema validation before trusting it — a
+ * raw localStorage entry could be from an earlier (or, once a real
+ * migration exists, a newer) version of this app, or corrupted by hand
+ * editing devtools. A play that fails validation is dropped with a warning
+ * rather than crashing the whole library: a bad entry souring one play
+ * shouldn't take every other saved play down with it.
+ */
 const loadSavedPlays = (): Record<string, Play> => {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, Play>) : {};
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, Play> = {};
+    for (const [id, value] of Object.entries(parsed)) {
+      const play = migratePlay(value);
+      if (play) out[id] = play;
+      else console.warn(`Dropped saved play "${id}": failed schema validation.`);
+    }
+    return out;
   } catch {
     return {};
   }

@@ -125,7 +125,7 @@ function buildBenchPlacements(
         side,
         pos: toWorld(benchSlotPosition(i, bench.length, depthM), side),
         teamColor: '',
-        pose: 'idle',
+        pose: 'bench',
       });
     });
   }

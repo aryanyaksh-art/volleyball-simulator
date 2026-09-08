@@ -20,7 +20,8 @@ export type PoseId =
   | 'sprawl'
   | 'serveToss'
   | 'serveContact'
-  | 'transition';
+  | 'transition'
+  | 'bench';
 
 export const ALL_POSES: readonly PoseId[] = [
   'idle',
@@ -39,4 +40,5 @@ export const ALL_POSES: readonly PoseId[] = [
   'serveToss',
   'serveContact',
   'transition',
+  'bench',
 ];

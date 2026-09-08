@@ -271,6 +271,26 @@ export const POSES: Record<PoseId, PartialPoseJoints> = {
     kneeR: j(12 * DEG),
   },
 
+  // Approximates sitting via joint rotation alone, the same way every other
+  // pose here fakes its stance without new geometry: hips and knees both
+  // bend toward 90 deg (thighs roughly horizontal, shins roughly vertical),
+  // arms relaxed and slightly forward as if resting on the thighs. Honest
+  // limitation, not hidden: the pelvis height itself never drops (no bench
+  // seat is modeled), so this reads as "sitting in the air" up close rather
+  // than on an actual bench — acceptable for a small, dim BENCH_SCALE
+  // silhouette off to the side, which is what this is used for.
+  bench: {
+    spine: j(8 * DEG),
+    shoulderL: j(25 * DEG, 0, 12 * DEG),
+    elbowL: j(75 * DEG),
+    shoulderR: j(25 * DEG, 0, -12 * DEG),
+    elbowR: j(75 * DEG),
+    hipL: j(85 * DEG, 0, 6 * DEG),
+    kneeL: j(90 * DEG),
+    hipR: j(85 * DEG, 0, -6 * DEG),
+    kneeR: j(90 * DEG),
+  },
+
   // Relaxed repositioning between contacts — upright, arms loose.
   transition: {
     spine: j(5 * DEG),
