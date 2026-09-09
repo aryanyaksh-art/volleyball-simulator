@@ -39,11 +39,23 @@ export interface CommitPositionParams {
   onCourtId: string;
   side: Side;
   target: GuidedTarget;
+  /** Which step the movement lands in. See commitPositionAction's own doc comment. */
+  stepId?: string;
 }
 
 const onCourtIdToPlayerRef = (onCourtId: string): PlayerRef => {
   const [side, slotStr] = onCourtId.split(':') as [Side, string];
   return { side, kind: 'slot', index: Number(slotStr) };
+};
+
+/** Which step's time range `t` falls in, laying out each step's duration sequentially from the start of the play, the same order compile.ts uses. Clamps to the last step once `t` reaches or passes the end, and returns undefined for an empty play. */
+export const stepIdAtTime = (play: Play, t: number): string | undefined => {
+  let cursor = 0;
+  for (const step of play.steps) {
+    cursor += step.duration;
+    if (t < cursor) return step.id;
+  }
+  return play.steps[play.steps.length - 1]?.id;
 };
 
 const holdMovement = (who: PlayerRef, pose: Movement['pose'], mode: Movement['mode'], durationS: number, jump?: Movement['jump']): Movement => ({
@@ -110,20 +122,33 @@ const CONTACT_KIND_BY_ACTION: Record<Exclude<GuidedContactAction, 'serve'>, 'han
 /**
  * Scales a jump's timing to an actual movement duration instead of the fixed
  * numbers `defaults.jump` was authored with (which assumed the old, always-
- * short hold-movement duration). The peak lands just before the movement
- * ends — contact happens near the top of the jump, just as the player
- * finishes arriving — so an attacker jumps *while the set is still in the
- * air* and hits it at the peak, instead of waiting for the ball to stop
- * moving first. Returns undefined when there's no jump to scale (every
- * guided action except attack).
+ * short hold-movement duration). `hangS` scales down for a fast set tempo (a
+ * quick 1-tempo gets a short, snappy hang; a high ball gets the full,
+ * realistic one), so an attacker jumps *while the set is still in the air*
+ * instead of waiting for the ball to stop moving first.
+ *
+ * Contact happens at the very end of this movement (the next step, and the
+ * outgoing spike, start exactly when the incoming ball arrives), and that
+ * next step gives the attacker no movement of their own, just a plain hold —
+ * so whatever height they're at, at the exact instant this movement ends, is
+ * where they'll appear to freeze for the whole following step. Placing the
+ * peak (`jumpOffsetY`'s `atT`) right at that instant, as a naive "peak at the
+ * end" reading of this comment might suggest, actually puts contact at the
+ * *landing* point of the arc (u=1, offset back to 0) — grounded, not
+ * airborne. Landing the peak `PEAK_LEAD_S` seconds *before* the end instead
+ * means contact happens on the way down at a real, visible fraction of the
+ * peak height (see CONTACT_ARC_U below), clearly still in the air, with only
+ * a small, easy-to-miss remaining drop absorbed by the snap to the next
+ * step's hold instead of a jarring fall from full height.
  */
+const CONTACT_ARC_U = 0.85;
 const scaledJump = (
   jump: { atT: number; heightM: number; hangS: number } | undefined,
   movementDurationS: number,
 ): Movement['jump'] => {
   if (!jump) return undefined;
   const hangS = Math.min(jump.hangS, Math.max(movementDurationS * 0.6, 0.1));
-  const atT = Math.max(hangS / 2, movementDurationS - hangS / 2);
+  const atT = Math.max(hangS / 2, movementDurationS - (CONTACT_ARC_U - 0.5) * hangS);
   return { atT, heightM: jump.heightM, hangS };
 };
 
@@ -209,10 +234,12 @@ export const commitContactAction = (play: Play, params: CommitContactParams): Pl
     approach.startOffset = previousStep.ball.startOffset ?? 0;
     steps = play.steps.map((s, i) => (i === play.steps.length - 1 ? { ...s, movements: [...s.movements, approach] } : s));
   } else {
-    // Nothing incoming yet (the play's first ball touch) — no arrival to
+    // Nothing incoming yet (the play's first ball touch) -- no arrival to
     // react to, so this contact stays self-contained: a brief wind-up hold,
-    // then contact, both within this one new step.
-    ownMovement = holdMovement(who, defaults.pose, defaults.movementMode, defaults.movementDurationS, defaults.jump);
+    // then contact, both within this one new step. Still goes through
+    // scaledJump so a first-touch attack times its jump the same way a
+    // normal reacting one does, not the raw, unscaled default.
+    ownMovement = holdMovement(who, defaults.pose, defaults.movementMode, defaults.movementDurationS, scaledJump(defaults.jump, defaults.movementDurationS));
   }
 
   const from: BallSegment['from'] = { kind: 'atPlayer', who, contact: contactKind };
@@ -270,7 +297,15 @@ export const commitContactAction = (play: Play, params: CommitContactParams): Pl
 // player teleporting or freezing in the wrong pose during Task 12's browser
 // check, this is the first place to look.
 
-/** Adds a movement to the currently open (last) step, or starts a fresh no-ball step if none is open yet. "Open" here just means "the last step in the list" — there's no separate closed/open flag on PlayStep itself. */
+/**
+ * Adds a movement to a step, or starts a fresh no-ball step if the play is
+ * empty. Which step it lands in depends on `params.stepId`: given (a direct
+ * drag passes the step whose time range the playhead is currently showing),
+ * that step gets the movement, so repositioning someone updates exactly what
+ * you're looking at. Omitted (the click-based action menu's normal flow),
+ * it falls back to the last step, since that flow is about building the
+ * play forward in time, not editing a specific already-authored moment.
+ */
 export const commitPositionAction = (play: Play, params: CommitPositionParams): Play => {
   const who = onCourtIdToPlayerRef(params.onCourtId);
   const defaults = GUIDED_POSITION_DEFAULTS[params.action];
@@ -287,11 +322,17 @@ export const commitPositionAction = (play: Play, params: CommitPositionParams): 
   }
 
   const steps = [...play.steps];
-  const last = steps[steps.length - 1];
-  steps[steps.length - 1] = {
-    ...last,
-    duration: Math.max(last.duration, movement.duration ?? 0),
-    movements: [...last.movements, movement],
+  const requestedIndex = params.stepId ? steps.findIndex((s) => s.id === params.stepId) : -1;
+  const index = requestedIndex >= 0 ? requestedIndex : steps.length - 1;
+  const target = steps[index];
+  // A repeat drag of the same player within the same step replaces their
+  // movement there instead of stacking a second, conflicting one -- fine-
+  // tuning a position should overwrite, not pile up.
+  const otherMovements = target.movements.filter((m) => !playerRefEquals(m.who, who));
+  steps[index] = {
+    ...target,
+    duration: Math.max(target.duration, movement.duration ?? 0),
+    movements: [...otherMovements, movement],
   };
   return { ...play, steps };
 };

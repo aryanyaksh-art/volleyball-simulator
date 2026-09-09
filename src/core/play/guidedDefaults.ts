@@ -44,10 +44,12 @@ export const GUIDED_CONTACT_DEFAULTS: Record<GuidedContactAction, GuidedContactD
     // attack pose tops out well under net height on its own (~2m), so the
     // jump itself has to clear the gap up to and past the net (2.43m) with
     // real margin, or a spike just looks like it's brushing the tape rather
-    // than rising clearly above it. atT/hangS here are placeholders —
-    // scaledJump() (app/guidedAuthoring.ts) always re-times them relative to
-    // the player's actual approach duration once a real movement exists.
-    jump: { atT: 0.2, heightM: 1.0, hangS: 0.3 },
+    // than rising clearly above it. hangS (0.6s) is a realistic full-approach
+    // hang time; scaledJump() (app/guidedAuthoring.ts) always re-times atT
+    // and scales hangS down for a faster set tempo, so a quick 1-tempo still
+    // gets a short, snappy hang while a high ball gets the full 0.6s. atT
+    // here is just a placeholder, always overridden by scaledJump().
+    jump: { atT: 0.2, heightM: 1.0, hangS: 0.6 },
   },
   tip: { profile: 'tip', apexM: 1.6, ballDurationS: 0.35, movementMode: 'approach', movementDurationS: 0.4, pose: 'attack' },
 };

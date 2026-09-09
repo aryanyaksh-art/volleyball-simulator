@@ -33,7 +33,7 @@ import { createWorldState, type PlaySchedule, type WorldState } from '@/core/pla
 import { diagnosePlay } from '@/core/play/diagnostics';
 import { analyzeServeReceive, buildPassers } from '@/core/tactics/serveReceive';
 import { DEMO_PLAYS } from '@/fixtures/demoPlays';
-import { commitPositionAction } from '@/app/guidedAuthoring';
+import { commitPositionAction, stepIdAtTime } from '@/app/guidedAuthoring';
 import type { Vec3 } from '@/core/math/vec';
 
 const SERVE_RECEIVE_CELL_SIZE_M = 0.4;
@@ -453,7 +453,10 @@ export function SceneCanvas() {
         // click-based action was half-chosen for them is dropped.
         if (guided.selectedOnCourtId === id) guided.reset();
         const local = toLocal({ x: worldPos.x, y: 0, z: worldPos.z }, side);
-        usePlayEditorStore.getState().applyGuidedAction((p) => commitPositionAction(p, { action: 'move', onCourtId: id, side, target: local }));
+        const currentT = usePlaybackStore.getState().t;
+        usePlayEditorStore.getState().applyGuidedAction((p) =>
+          commitPositionAction(p, { action: 'move', onCourtId: id, side, target: local, stepId: stepIdAtTime(p, currentT) }),
+        );
       },
       onSelectPlayer: (id) => {
         const guided = useGuidedAuthorStore.getState();
@@ -516,6 +519,8 @@ export function SceneCanvas() {
   // preview always reflects the current 5-1 (or whatever's been edited),
   // and — in author mode — whenever the play being edited changes at all.
   useEffect(() => {
+    const bridge = bridgeRef.current;
+    if (!bridge) return;
     let play: Play | null;
     if (playbackMode === 'author') {
       play = editorPlay;
@@ -524,12 +529,18 @@ export function SceneCanvas() {
     }
     if (!play) {
       scheduleRef.current = null;
+      bridge.setBallPath([]);
       return;
     }
     const schedule = compilePlay(play, { rosters, lineups, positions: positionOverrides });
     scheduleRef.current = schedule;
     usePlaybackStore.getState().setDuration(schedule.durationS);
     usePlaybackStore.getState().setDiagnostics(diagnosePlay(schedule));
+    // The full, exact shape of every ball flight in the play, drawn as a
+    // persistent dashed line so a spike's (or any other contact's) actual
+    // arc is visible while authoring, not just as a fading trail once you
+    // hit Play.
+    bridge.setBallPath(schedule.ballTrack.map((seg) => ({ from: seg.from, to: seg.to, apexM: seg.apexM, apexU: seg.apexU })));
 
     const liberoIds = new Set<string>();
     for (const side of SIDES) {

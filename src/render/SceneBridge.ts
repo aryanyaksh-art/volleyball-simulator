@@ -21,6 +21,7 @@ import { buildBlockShadowMesh, buildTipRegionRing } from './overlays/BlockShadow
 import { buildOpenAngleConesMesh } from './overlays/OpenAngleCones';
 import type { OpenAngleCones } from '@/core/tactics/block';
 import { buildDragGhostGroup } from './overlays/DragGhost';
+import { buildBallPathGroup, type BallArcInput } from './overlays/BallPathLine';
 
 export interface PlayerPlacement {
   id: string;
@@ -68,6 +69,7 @@ export class SceneBridge {
   private violationGroup: THREE.Group | null = null;
   private coverageMesh: THREE.Mesh | null = null;
   private approachLaneGroup: THREE.Group | null = null;
+  private ballPathGroup: THREE.Group | null = null;
   private blockShadowMesh: THREE.Mesh | null = null;
   private tipRegionMesh: THREE.Mesh | null = null;
   private openAngleMesh: THREE.Mesh | null = null;
@@ -278,6 +280,18 @@ export class SceneBridge {
     this.scene.add(this.coverageMesh);
   }
 
+  /** Persistent dashed preview of one or more ball flights (a whole play's worth, typically), visible while authoring instead of only appearing as a fading trail during actual playback. Pass an empty array to clear it. */
+  setBallPath(arcs: BallArcInput[]): void {
+    if (this.ballPathGroup) {
+      this.scene.remove(this.ballPathGroup);
+      disposeObject(this.ballPathGroup);
+      this.ballPathGroup = null;
+    }
+    if (arcs.length === 0) return;
+    this.ballPathGroup = buildBallPathGroup(arcs, this.theme);
+    this.scene.add(this.ballPathGroup);
+  }
+
   /** Approach lane line (approach start -> takeoff -> contact). Pass an empty array to clear it. */
   setApproachLane(points: Vec3[]): void {
     if (this.approachLaneGroup) {
@@ -379,6 +393,11 @@ export class SceneBridge {
       this.scene.remove(this.approachLaneGroup);
       disposeObject(this.approachLaneGroup);
       this.approachLaneGroup = null;
+    }
+    if (this.ballPathGroup) {
+      this.scene.remove(this.ballPathGroup);
+      disposeObject(this.ballPathGroup);
+      this.ballPathGroup = null;
     }
     if (this.blockShadowMesh) {
       this.scene.remove(this.blockShadowMesh);
